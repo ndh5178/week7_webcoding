@@ -94,10 +94,28 @@ function updateIdInputVisibility() {
   rangeInputWrap.style.display = currentMode === "range"  ? "flex"  : "none";
 }
 
-function getTargetId() {
-  const value = Number(targetIdInput.value);
+function getSingleSearchTarget() {
+  const rawValue = targetIdInput.value.trim();
   const count = Number(datasetSize.value);
-  return Number.isInteger(value) && value > 0 ? value : Math.floor(count / 2);
+
+  if (!rawValue) {
+    return {
+      type: "id",
+      value: String(Math.floor(count / 2)),
+    };
+  }
+
+  if (/^\d+$/.test(rawValue) && Number(rawValue) > 0) {
+    return {
+      type: "id",
+      value: rawValue,
+    };
+  }
+
+  return {
+    type: "name",
+    value: rawValue,
+  };
 }
 
 function getRangeLo() {
@@ -329,7 +347,10 @@ function renderRangeRealtime(data) {
 }
 
 function renderSingle(payload, benchmark) {
+  const isNameSearch = payload.search_type === "name";
   const targetId = payload.target_id;
+  const targetName = payload.target_name;
+  const resolvedId = payload.resolved_id;
 
   resultEls.linearTime.textContent = formatTimeUs(payload.timings.linear_us);
   resultEls.btreeTime.textContent = formatTimeUs(payload.timings.btree_us);
@@ -339,9 +360,20 @@ function renderSingle(payload, benchmark) {
   resultEls.btreeOps.textContent = formatOps(payload.btree_ops);
   resultEls.bptreeOps.textContent = formatOps(payload.bptree_ops);
 
-  resultEls.linearCaption.textContent = `ID #${formatNumber(targetId)}를 찾기 위해 선형 탐색 수행`;
-  resultEls.btreeCaption.textContent = `ID #${formatNumber(targetId)}를 B 트리 분기로 탐색`;
-  resultEls.bptreeCaption.textContent = `ID #${formatNumber(targetId)}를 B+ 트리 리프에서 탐색`;
+  if (isNameSearch) {
+    resultEls.linearCaption.textContent = `"${targetName}" 닉네임을 선형 탐색으로 확인`;
+    if (payload.found && resolvedId > 0) {
+      resultEls.btreeCaption.textContent = `찾은 ID #${formatNumber(resolvedId)}를 B 트리로 다시 조회`;
+      resultEls.bptreeCaption.textContent = `찾은 ID #${formatNumber(resolvedId)}를 B+ 트리 리프에서 다시 조회`;
+    } else {
+      resultEls.btreeCaption.textContent = "일치하는 닉네임이 없어 B 트리 조회를 생략";
+      resultEls.bptreeCaption.textContent = "일치하는 닉네임이 없어 B+ 트리 조회를 생략";
+    }
+  } else {
+    resultEls.linearCaption.textContent = `ID #${formatNumber(targetId)}를 찾기 위해 선형 탐색 수행`;
+    resultEls.btreeCaption.textContent = `ID #${formatNumber(targetId)}를 B 트리 분기로 탐색`;
+    resultEls.bptreeCaption.textContent = `ID #${formatNumber(targetId)}를 B+ 트리 리프에서 탐색`;
+  }
 
   setProgressBars({
     linear: payload.timings.linear_us,
@@ -349,7 +381,9 @@ function renderSingle(payload, benchmark) {
     bptree: payload.timings.bptree_us,
   });
 
-  summaryEls.lastSearch.textContent = `ID #${formatNumber(targetId)}`;
+  summaryEls.lastSearch.textContent = isNameSearch
+    ? `NAME "${targetName}"`
+    : `ID #${formatNumber(targetId)}`;
 
   if (payload.player) {
     summaryEls.tableSubtitle.textContent = "검색 결과 1건";
@@ -361,7 +395,11 @@ function renderSingle(payload, benchmark) {
     summaryEls.tableSubtitle.textContent = "검색 결과 없음";
     rankingBody.innerHTML = `
       <tr>
-        <td colspan="5">ID #${formatNumber(targetId)} 에 해당하는 플레이어가 없습니다.</td>
+        <td colspan="5">${
+          isNameSearch
+            ? `닉네임 "${targetName}" 에 해당하는 플레이어가 없습니다.`
+            : `ID #${formatNumber(targetId)} 에 해당하는 플레이어가 없습니다.`
+        }</td>
       </tr>
     `;
   }
@@ -430,9 +468,12 @@ async function runCurrentMode() {
 
     if (currentMode === "single") {
       currentRangeState = null;
-      const targetId = getTargetId();
+      const target = getSingleSearchTarget();
       runButton.textContent = "탐색 실행 중...";
-      const payload = await fetchJson(buildUrl(`api/search?id=${targetId}`), "검색 실패");
+      const payload = await fetchJson(
+        buildUrl(`api/search?target=${encodeURIComponent(target.value)}`),
+        "검색 실패"
+      );
       if (!payload.ok) {
         throw new Error(payload.message || "검색 실패");
       }

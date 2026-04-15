@@ -10,6 +10,7 @@
  * 지원 명령:
  *   INSERT <name> <win_rate> [rank]   레코드 삽입 (ID 자동 부여)
  *   SELECT ID <n>           B+ 트리로 ID 탐색
+ *   SELECT NAME <name>      선형 탐색으로 nickname 탐색
  *   SELECT WINRATE <n>      선형 탐색으로 win_rate >= n 인 레코드 수 조회
  *   LOAD <n>                n개 레코드 랜덤 삽입
  *   LOADCSV [path]          CSV 파일 로드 (기본: data/players_1000000.csv)
@@ -182,6 +183,20 @@ static void cmd_select_id(Table *t, int id) {
     }
 }
 
+/* SELECT NAME <name> — 선형 탐색 */
+static void cmd_select_name(Table *t, const char *name) {
+    long long t0 = now_us();
+    Player *p = linear_search_name(t->records, t->count, name);
+    long long elapsed = now_us() - t0;
+
+    if (p) {
+        printf("  [선형 탐색] nickname=%s  -> ID=%d  win_rate=%.2f%%  rank=%s  (%lld μs)\n",
+               p->name, p->id, p->win_rate, p->rank, elapsed);
+    } else {
+        printf("  [선형 탐색] nickname=%s — 없음  (%lld μs)\n", name, elapsed);
+    }
+}
+
 /* SELECT WINRATE <n> — 선형 탐색 (win_rate >= n) */
 static void cmd_select_win_rate(Table *t, double min_win_rate) {
     long long t0 = now_us();
@@ -305,13 +320,16 @@ static void cmd_bench(Table *t) {
         return;
     }
     int target = t->records[t->count / 2].id;   /* 중간값 ID */
+    const char *target_name = t->records[t->count / 2].name;
+    Player *resolved = linear_search_name(t->records, t->count, target_name);
+    int resolved_id = resolved ? resolved->id : 0;
     int lo     = 1;
     int hi     = t->records[(int)(t->count * 0.01)].id;  /* 상위 1% */
 
     printf("  벤치마크 (n=%d, 단일=ID#%d, 범위=%d~%d, %d회 평균)\n",
            t->count, target, lo, hi, BENCH_ITERS);
 
-    long long ls=0, bs=0, bps=0, lr=0, br=0, bpr=0;
+    long long ls=0, bs=0, bps=0, lns=0, bns=0, bpns=0, lr=0, br=0, bpr=0;
     long long t0, t1;
 
     /* B 트리는 shell의 Table 구조에 포함되지 않으므로 별도 생성 */
@@ -323,6 +341,9 @@ static void cmd_bench(Table *t) {
         t0=now_us(); linear_search(t->records, t->count, target); t1=now_us(); ls+=t1-t0;
         t0=now_us(); btree_search(bt, target);                    t1=now_us(); bs+=t1-t0;
         t0=now_us(); bptree_search(t->index, target);             t1=now_us(); bps+=t1-t0;
+        t0=now_us(); linear_search_name(t->records, t->count, target_name); t1=now_us(); lns+=t1-t0;
+        t0=now_us(); btree_search(bt, resolved_id);                           t1=now_us(); bns+=t1-t0;
+        t0=now_us(); bptree_search(t->index, resolved_id);                    t1=now_us(); bpns+=t1-t0;
         t0=now_us(); linear_range(t->records, t->count, lo, hi);  t1=now_us(); lr+=t1-t0;
         t0=now_us(); btree_range(bt, lo, hi);                     t1=now_us(); br+=t1-t0;
         t0=now_us(); bptree_range(t->index, lo, hi);              t1=now_us(); bpr+=t1-t0;
@@ -331,6 +352,12 @@ static void cmd_bench(Table *t) {
     printf("  %-12s %12lld μs %12lld μs\n", "선형 탐색", ls/BENCH_ITERS,  lr/BENCH_ITERS);
     printf("  %-12s %12lld μs %12lld μs\n", "B 트리",    bs/BENCH_ITERS,  br/BENCH_ITERS);
     printf("  %-12s %12lld μs %12lld μs\n", "B+ 트리",   bps/BENCH_ITERS, bpr/BENCH_ITERS);
+    printf("\n  이름 기준 브리지 비교 (nickname=%s -> resolved ID=%d)\n", target_name, resolved_id);
+    printf("  %-12s %12s\n", "", "단일 탐색");
+    printf("  %-12s %12lld μs\n", "선형(name)", lns/BENCH_ITERS);
+    printf("  %-12s %12lld μs\n", "B 트리(id)", bns/BENCH_ITERS);
+    printf("  %-12s %12lld μs\n", "B+ 트리(id)", bpns/BENCH_ITERS);
+    printf("  * name은 선형 탐색으로 먼저 찾고, 찾은 레코드의 ID로 트리를 다시 조회합니다.\n");
     btree_free(bt);
 }
 
@@ -339,6 +366,7 @@ static void cmd_help(void) {
     printf("  명령어 목록:\n");
     printf("    INSERT <name> <win_rate> [rank]   레코드 삽입 (ID 자동 부여)\n");
     printf("    SELECT ID <n>           B+ 트리로 ID 탐색\n");
+    printf("    SELECT NAME <name>      선형 탐색으로 nickname 탐색\n");
     printf("    SELECT WINRATE <n>      선형 탐색 (win_rate >= n)\n");
     printf("    LOAD <n>                n개 랜덤 레코드 일괄 삽입\n");
     printf("    LOADCSV [path]          CSV 파일 로드 (기본: %s)\n", DEFAULT_CSV_PATH);
@@ -407,9 +435,11 @@ int main(int argc, char *argv[]) {
             }
 
         } else if (strcmp(cmd, "SELECT") == 0) {
-            if (argc < 3) { printf("  사용법: SELECT ID <n>  또는  SELECT WINRATE <n>\n"); continue; }
+            if (argc < 3) { printf("  사용법: SELECT ID <n>  또는  SELECT NAME <name>  또는  SELECT WINRATE <n>\n"); continue; }
             if (strcmp(arg1, "ID") == 0) {
                 cmd_select_id(t, atoi(arg2));
+            } else if (strcmp(arg1, "NAME") == 0) {
+                cmd_select_name(t, arg2);
             } else if (strcmp(arg1, "WINRATE") == 0) {
                 cmd_select_win_rate(t, atof(arg2));
             } else {

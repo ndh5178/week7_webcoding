@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>GameRank DB Demo</title>
-    <link rel="stylesheet" href="./css/styles.css?v=5" />
+    <link rel="stylesheet" href="./css/styles.css?v=6" />
   </head>
   <body>
     <div class="page-shell">
@@ -56,11 +56,10 @@
 
             <div class="id-input-wrap" id="id-input-wrap">
               <input
-                type="number"
+                type="text"
                 id="target-id"
                 class="id-input"
-                placeholder="탐색할 Player ID 입력 (기본: 데이터셋 중간값)"
-                min="1"
+                placeholder="탐색할 Player ID 또는 닉네임 입력 (기본: 데이터셋 중간값 ID)"
               />
             </div>
 
@@ -84,7 +83,7 @@
         </div>
 
         <div class="mode-tabs" id="mode-tabs">
-          <button class="mode-tab active" data-mode="single">단일 탐색 (id = ?)</button>
+          <button class="mode-tab active" data-mode="single">단일 탐색 (id/name = ?)</button>
           <button class="mode-tab" data-mode="range">범위 탐색 (BETWEEN)</button>
           <button class="mode-tab" data-mode="top10">TOP 10 랭킹</button>
         </div>
@@ -175,6 +174,6 @@
       </section>
     </div>
 
-    <script src="./js/app.js?v=6"></script>
+    <script src="./js/app.js?v=7"></script>
   </body>
 </html>

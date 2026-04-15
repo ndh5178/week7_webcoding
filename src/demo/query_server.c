@@ -269,7 +269,84 @@ static void print_search_result(Player *players, int count, BTree *btree, BPTree
     printf("{");
     printf("\"ok\":true,");
     printf("\"dataset_size\":%d,", count);
+    printf("\"search_type\":\"id\",");
     printf("\"target_id\":%d,", target_id);
+    printf("\"found\":%s,", linear_found ? "true" : "false");
+    printf("\"timings\":{");
+    printf("\"linear_us\":%.3f,", (double)linear_total / SEARCH_ITERS / 1000.0);
+    printf("\"btree_us\":%.3f,", (double)btree_total / SEARCH_ITERS / 1000.0);
+    printf("\"bptree_us\":%.3f", (double)bptree_total / SEARCH_ITERS / 1000.0);
+    printf("},");
+    printf("\"linear_ops\":%lld,", linear_ops_total / SEARCH_ITERS);
+    printf("\"btree_ops\":%lld,", btree_ops_total / SEARCH_ITERS);
+    printf("\"bptree_ops\":%lld,", bptree_ops_total / SEARCH_ITERS);
+
+    if (linear_found && btree_found && bptree_found) {
+        printf("\"player\":");
+        print_player_json(linear_found);
+    } else {
+        printf("\"player\":null");
+    }
+
+    printf("}\n");
+    fflush(stdout);
+}
+
+static void print_name_search_result(Player *players, int count, BTree *btree, BPTree *bptree, const char *target_name) {
+    Player *linear_found;
+    Player *btree_found;
+    Player *bptree_found;
+    long long linear_total = 0;
+    long long btree_total = 0;
+    long long bptree_total = 0;
+    long long linear_ops_total = 0;
+    long long btree_ops_total = 0;
+    long long bptree_ops_total = 0;
+    int resolved_id = 0;
+    int i;
+
+    linear_found = NULL;
+    btree_found = NULL;
+    bptree_found = NULL;
+
+    for (i = 0; i < SEARCH_ITERS; ++i) {
+        long long start;
+
+        g_op_count = 0;
+        start = now_ns();
+        linear_found = linear_search_name(players, count, target_name);
+        linear_total += now_ns() - start;
+        linear_ops_total += g_op_count;
+
+        if (!linear_found) {
+            btree_found = NULL;
+            bptree_found = NULL;
+            continue;
+        }
+
+        resolved_id = linear_found->id;
+
+        g_op_count = 0;
+        start = now_ns();
+        btree_found = (Player *)btree_search(btree, resolved_id);
+        btree_total += now_ns() - start;
+        btree_ops_total += g_op_count;
+
+        g_op_count = 0;
+        start = now_ns();
+        bptree_found = (Player *)bptree_search(bptree, resolved_id);
+        bptree_total += now_ns() - start;
+        bptree_ops_total += g_op_count;
+    }
+
+    printf("{");
+    printf("\"ok\":true,");
+    printf("\"dataset_size\":%d,", count);
+    printf("\"search_type\":\"name\",");
+    printf("\"target_name\":");
+    print_json_string(stdout, target_name);
+    printf(",");
+    printf("\"resolved_id\":%d,", resolved_id);
     printf("\"found\":%s,", linear_found ? "true" : "false");
     printf("\"timings\":{");
     printf("\"linear_us\":%.3f,", (double)linear_total / SEARCH_ITERS / 1000.0);
@@ -528,6 +605,20 @@ int main(int argc, char **argv) {
             }
 
             print_search_result(players, count, btree, bptree, target_id);
+            continue;
+        }
+
+        if (strncmp(line, "search_name ", 12) == 0) {
+            char *target_name = line + 12;
+            target_name[strcspn(target_name, "\r\n")] = '\0';
+
+            if (target_name[0] == '\0') {
+                printf("{\"ok\":false,\"message\":\"name must not be empty\"}\n");
+                fflush(stdout);
+                continue;
+            }
+
+            print_name_search_result(players, count, btree, bptree, target_name);
             continue;
         }
 

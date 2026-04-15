@@ -45,6 +45,44 @@ static TimingResult benchmark_single_linear(Player *players, int count, int targ
     }
 }
 
+static TimingResult benchmark_single_linear_name(
+    Player *players,
+    int count,
+    const char *target_name,
+    int iterations,
+    int *resolved_id
+) {
+    int i;
+    long long total = 0;
+    long long ops_total = 0;
+    int found_id = 0;
+
+    for (i = 0; i < iterations; ++i) {
+        Player *found;
+        long long start = now_ns();
+
+        g_op_count = 0;
+        found = linear_search_name(players, count, target_name);
+        total += now_ns() - start;
+        ops_total += g_op_count;
+
+        if (found) {
+            found_id = found->id;
+        }
+    }
+
+    if (resolved_id) {
+        *resolved_id = found_id;
+    }
+
+    {
+        TimingResult result;
+        result.avg_us = (double)total / iterations / 1000.0;
+        result.ops = ops_total / iterations;
+        return result;
+    }
+}
+
 static TimingResult benchmark_single_btree(BTree *tree, int target_id, int iterations) {
     int i;
     long long total = 0;
@@ -219,12 +257,17 @@ static int write_json(
     int count,
     int iterations,
     int target_id,
+    const char *target_name,
+    int resolved_name_id,
     int lo,
     int hi,
     int range_count,
     TimingResult single_linear,
     TimingResult single_btree,
     TimingResult single_bptree,
+    TimingResult name_linear,
+    TimingResult name_btree,
+    TimingResult name_bptree,
     TimingResult range_linear,
     TimingResult range_btree,
     TimingResult range_bptree,
@@ -261,6 +304,18 @@ static int write_json(
     fprintf(fp, "    \"btree\": {\"avg_us\": %.3f, \"ops\": %lld},\n", single_btree.avg_us, single_btree.ops);
     fprintf(fp, "    \"bptree\": {\"avg_us\": %.3f, \"ops\": %lld}\n", single_bptree.avg_us, single_bptree.ops);
     fprintf(fp, "  },\n");
+    fprintf(fp, "  \"name_bridge_search\": {\n");
+    fprintf(fp, "    \"target_name\": ");
+    print_json_string(fp, target_name);
+    fprintf(fp, ",\n");
+    fprintf(fp, "    \"resolved_id\": %d,\n", resolved_name_id);
+    fprintf(fp, "    \"note\": ");
+    print_json_string(fp, "name lookup is resolved by linear scan first, then B-Tree/B+Tree search reuse the resolved id");
+    fprintf(fp, ",\n");
+    fprintf(fp, "    \"linear_name\": {\"avg_us\": %.3f, \"ops\": %lld},\n", name_linear.avg_us, name_linear.ops);
+    fprintf(fp, "    \"btree_by_id\": {\"avg_us\": %.3f, \"ops\": %lld},\n", name_btree.avg_us, name_btree.ops);
+    fprintf(fp, "    \"bptree_by_id\": {\"avg_us\": %.3f, \"ops\": %lld}\n", name_bptree.avg_us, name_bptree.ops);
+    fprintf(fp, "  },\n");
     fprintf(fp, "  \"range_search\": {\n");
     fprintf(fp, "    \"lo\": %d,\n", lo);
     fprintf(fp, "    \"hi\": %d,\n", hi);
@@ -295,12 +350,17 @@ int main(int argc, char **argv) {
     int i;
     int iterations = 5;
     int target_id;
+    const char *target_name;
+    int resolved_name_id;
     int lo;
     int hi;
     int range_count;
     TimingResult single_linear;
     TimingResult single_btree;
     TimingResult single_bptree;
+    TimingResult name_linear;
+    TimingResult name_btree;
+    TimingResult name_bptree;
     TimingResult range_linear;
     TimingResult range_btree;
     TimingResult range_bptree;
@@ -335,6 +395,7 @@ int main(int argc, char **argv) {
     if (target_id < 1) {
         target_id = 1;
     }
+    target_name = players[target_id - 1].name;
     lo = target_id;
     hi = target_id + 999;
     if (hi > count) {
@@ -345,6 +406,9 @@ int main(int argc, char **argv) {
     single_linear = benchmark_single_linear(players, count, target_id, iterations);
     single_btree = benchmark_single_btree(btree, target_id, iterations);
     single_bptree = benchmark_single_bptree(bptree, target_id, iterations);
+    name_linear = benchmark_single_linear_name(players, count, target_name, iterations, &resolved_name_id);
+    name_btree = benchmark_single_btree(btree, resolved_name_id, iterations);
+    name_bptree = benchmark_single_bptree(bptree, resolved_name_id, iterations);
     range_linear = benchmark_range_linear(players, count, lo, hi, iterations);
     range_btree = benchmark_range_btree(btree, lo, hi, iterations);
     range_bptree = benchmark_range_bptree(bptree, lo, hi, iterations);
@@ -354,6 +418,10 @@ int main(int argc, char **argv) {
     printf("  Linear : %.3f us\n", single_linear.avg_us);
     printf("  B-Tree : %.3f us\n", single_btree.avg_us);
     printf("  B+Tree : %.3f us\n", single_bptree.avg_us);
+    printf("Name bridge target: name=%s -> resolved id=%d\n", target_name, resolved_name_id);
+    printf("  Linear(name)        : %.3f us\n", name_linear.avg_us);
+    printf("  B-Tree(resolved id) : %.3f us\n", name_btree.avg_us);
+    printf("  B+Tree(resolved id) : %.3f us\n", name_bptree.avg_us);
     printf("Range search: %d..%d (%d rows)\n", lo, hi, range_count);
     printf("  Linear : %.3f us\n", range_linear.avg_us);
     printf("  B-Tree : %.3f us\n", range_btree.avg_us);
@@ -364,12 +432,17 @@ int main(int argc, char **argv) {
         count,
         iterations,
         target_id,
+        target_name,
+        resolved_name_id,
         lo,
         hi,
         range_count,
         single_linear,
         single_btree,
         single_bptree,
+        name_linear,
+        name_btree,
+        name_bptree,
         range_linear,
         range_btree,
         range_bptree,

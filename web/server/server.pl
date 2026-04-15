@@ -244,15 +244,20 @@ sub handle_generate {
 sub handle_search {
     my ($client, $query) = @_;
     my %params = parse_query_string($query);
-    my $target_id = $params{id};
-    my $query_demo = executable_path(File::Spec->catfile($project_root, 'bin', 'query_demo'));
-    my ($exit_code, $output);
+    my $target = exists $params{target} ? $params{target} : $params{id};
+    my $command;
+    my $output;
     my $payload;
 
-    if (!defined $target_id || $target_id !~ /^\d+$/ || $target_id <= 0) {
+    if (defined $target) {
+        $target =~ s/^\s+//;
+        $target =~ s/\s+$//;
+    }
+
+    if (!defined $target || $target eq q{}) {
         return send_json($client, '400 Bad Request', {
             ok => JSON::PP::false,
-            message => 'id must be a positive integer'
+            message => 'target must not be empty'
         });
     }
 
@@ -271,7 +276,13 @@ sub handle_search {
         });
     }
 
-    print {$engine_in} "search $target_id\n";
+    if ($target =~ /^\d+$/ && $target > 0) {
+        $command = "search $target\n";
+    } else {
+        $command = "search_name $target\n";
+    }
+
+    print {$engine_in} $command;
     $output = <$engine_out>;
     if (!defined $output) {
         local $/;

@@ -55,8 +55,20 @@ make datagen
 # 벤치마크 실행
 make bench
 
+# CLI 엣지 케이스 실행
+make edgecheck
+
 # 결과 출력
 make result
+```
+
+개별 케이스만 보고 싶으면 아래처럼 실행할 수 있습니다.
+
+```bash
+./bin/edge_cases list
+./bin/edge_cases all
+./bin/edge_cases missing-id
+./bin/edge_cases shell-bad-csv
 ```
 
 ---
@@ -64,9 +76,11 @@ make result
 ## 벤치마크 방식
 
 - 레코드 수: 10만 / 50만 / 100만 / 500만
-- 탐색 유형: 단일 탐색(`WHERE id = ?`), 범위 탐색(`WHERE id BETWEEN ? AND ?`)
+- 탐색 유형: 단일 탐색(`WHERE id = ?`), 이름 브리지 비교(`WHERE name = ?`를 선형 탐색으로 찾은 뒤 해당 `id`로 트리 조회), 범위 탐색(`WHERE id BETWEEN ? AND ?`)
 - 측정 단위: 마이크로초(μs)
 - 측정 함수: `gettimeofday()`
+
+`name` 자체를 트리에서 직접 찾는 벤치마크는 아닙니다. 현재 인덱스는 `id` 기준만 있으므로, `name` 비교는 선형 탐색으로 대상을 찾고 그 결과의 `id`를 B 트리/B+ 트리에서 다시 조회하는 방식으로 비교합니다.
 
 ---
 

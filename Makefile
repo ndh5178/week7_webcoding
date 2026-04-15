@@ -4,7 +4,7 @@ BIN_DIR = bin
 DATA_DIR = data
 CSV_PATH = $(DATA_DIR)/players_1000000.csv
 
-all: $(BIN_DIR) datagen bench test demo_query query_server
+all: $(BIN_DIR) datagen bench test demo_query query_server shell edge_cases
 
 $(BIN_DIR):
 	mkdir -p $(BIN_DIR)
@@ -48,6 +48,20 @@ query_server: $(BIN_DIR)
 		src/demo/query_server.c \
 		-o $(BIN_DIR)/query_server
 
+shell: $(BIN_DIR)
+	$(CC) $(CFLAGS) \
+		src/linear/linear_search.c \
+		src/btree/btree.c src/bplus_tree/bplus_tree.c \
+		src/shell.c \
+		-o $(BIN_DIR)/shell
+
+edge_cases: $(BIN_DIR) shell
+	$(CC) $(CFLAGS) \
+		src/linear/linear_search.c \
+		src/btree/btree.c src/bplus_tree/bplus_tree.c \
+		src/demo/edge_case_cli.c \
+		-o $(BIN_DIR)/edge_cases
+
 run: bench
 	./$(BIN_DIR)/bench $(CSV_PATH)
 
@@ -57,8 +71,11 @@ csv: datagen $(DATA_DIR)
 webdata: bench csv
 	./$(BIN_DIR)/bench $(CSV_PATH) web/assets/results.json
 
-check: demo_query query_server bench test
+check: demo_query query_server bench shell edge_cases test
 	./$(BIN_DIR)/test_trees
+
+edgecheck: edge_cases
+	./$(BIN_DIR)/edge_cases all
 
 result: webdata
 
