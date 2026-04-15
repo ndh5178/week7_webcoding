@@ -16,6 +16,46 @@ static long long now_ns(void) {
     return (long long)ts.tv_sec * 1000000000LL + ts.tv_nsec;
 }
 
+static void print_json_string(FILE *out, const char *text) {
+    const unsigned char *cursor = (const unsigned char *)(text ? text : "");
+
+    fputc('"', out);
+    while (*cursor) {
+        switch (*cursor) {
+            case '\"':
+                fputs("\\\"", out);
+                break;
+            case '\\':
+                fputs("\\\\", out);
+                break;
+            case '\b':
+                fputs("\\b", out);
+                break;
+            case '\f':
+                fputs("\\f", out);
+                break;
+            case '\n':
+                fputs("\\n", out);
+                break;
+            case '\r':
+                fputs("\\r", out);
+                break;
+            case '\t':
+                fputs("\\t", out);
+                break;
+            default:
+                if (*cursor < 0x20) {
+                    fprintf(out, "\\u%04x", *cursor);
+                } else {
+                    fputc(*cursor, out);
+                }
+                break;
+        }
+        cursor++;
+    }
+    fputc('"', out);
+}
+
 int main(int argc, char **argv) {
     int count;
     int target_id;
@@ -86,9 +126,12 @@ int main(int argc, char **argv) {
     if (linear_found && btree_found && bptree_found) {
         printf("\"player\":{");
         printf("\"id\":%d,", linear_found->id);
-        printf("\"name\":\"%s\",", linear_found->name);
-        printf("\"score\":%d,", linear_found->score);
-        printf("\"tier\":\"%s\"", linear_found->tier);
+        printf("\"nickname\":");
+        print_json_string(stdout, linear_found->name);
+        printf(",");
+        printf("\"win_rate\":%.2f,", linear_found->win_rate);
+        printf("\"rank\":");
+        print_json_string(stdout, linear_found->rank);
         printf("}");
     } else {
         printf("\"player\":null");

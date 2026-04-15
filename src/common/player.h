@@ -4,8 +4,8 @@
 typedef struct {
     int   id;
     char  name[32];
-    int   score;
-    char  tier[16];
+    double win_rate;
+    char  rank[24];
 } Player;
 
 #endif

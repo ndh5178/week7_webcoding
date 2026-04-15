@@ -48,10 +48,9 @@ sub executable_path {
     return $base_path;
 }
 
-sub ensure_workspace_data_dir {
-    eval { make_path($workspace_data_dir) if !-d $workspace_data_dir; 1; } or return undef;
-    return $workspace_data_dir if -d $workspace_data_dir && -w $workspace_data_dir;
-    return undef;
+sub csv_path_for_count {
+    my ($count) = @_;
+    return File::Spec->catfile($workspace_data_dir, "players_${count}.csv");
 }
 
 sub send_response {
@@ -197,7 +196,6 @@ sub handle_generate {
     my %params = parse_query_string($query);
     my $count = $params{count} // 1_000_000;
     my $csv_path;
-    my $datagen = executable_path(File::Spec->catfile($project_root, 'bin', 'datagen'));
     my $bench = executable_path(File::Spec->catfile($project_root, 'bin', 'bench'));
     my ($exit_code, $output);
 
@@ -208,26 +206,11 @@ sub handle_generate {
         });
     }
 
-    my $data_dir = ensure_workspace_data_dir();
-    if (!$data_dir) {
-        return send_json($client, '500 Internal Server Error', {
+    $csv_path = csv_path_for_count($count);
+    if (!-f $csv_path) {
+        return send_json($client, '404 Not Found', {
             ok => JSON::PP::false,
-            message => "failed to prepare writable data directory: $workspace_data_dir"
-        });
-    }
-
-    $csv_path = File::Spec->catfile($data_dir, "players_${count}.csv");
-
-    # If a previous container/user created a read-only file at the same path,
-    # remove it first so datagen can recreate it under the current user.
-    unlink $csv_path if -e $csv_path;
-
-    ($exit_code, $output) = run_command($datagen, $count, $csv_path);
-    if ($exit_code != 0) {
-        return send_json($client, '500 Internal Server Error', {
-            ok => JSON::PP::false,
-            message => "failed to generate csv data: $output",
-            error => $output
+            message => "prebuilt csv file not found: $csv_path"
         });
     }
 
@@ -236,7 +219,7 @@ sub handle_generate {
     if ($exit_code != 0) {
         return send_json($client, '500 Internal Server Error', {
             ok => JSON::PP::false,
-            message => "failed to generate benchmark data: $output",
+            message => "failed to benchmark existing csv data: $output",
             error => $output
         });
     }
@@ -254,7 +237,7 @@ sub handle_generate {
         ok => JSON::PP::true,
         dataset_size => int($count),
         csv_path => $current_csv_path,
-        message => 'Generated CSV data and benchmark successfully.'
+        message => 'Loaded existing CSV data and benchmarked successfully.'
     });
 }
 
@@ -311,6 +294,129 @@ sub handle_search {
     return send_json($client, '200 OK', $payload);
 }
 
+sub handle_range {
+    my ($client, $query) = @_;
+    my %params = parse_query_string($query);
+    my $lo     = $params{lo} // 1;
+    my $hi     = $params{hi} // '';
+    my $count  = $params{count} // 1000000;
+    my $page   = $params{page} // 1;
+    my $page_size = $params{page_size} // 10;
+    my $output;
+    my $payload;
+
+    unless (
+        $lo =~ /^\d+$/
+        && $hi =~ /^\d+$/
+        && $count =~ /^\d+$/
+        && $page =~ /^\d+$/
+        && $page_size =~ /^\d+$/
+        && $lo > 0
+        && $hi >= $lo
+        && $count > 0
+        && $page > 0
+        && $page_size > 0
+    ) {
+        return send_json($client, '400 Bad Request', {
+            ok => JSON::PP::false,
+            message => 'lo, hi, count, page, page_size 값이 올바르지 않습니다.'
+        });
+    }
+
+    my $csv_path = csv_path_for_count($count);
+    if (!-f $csv_path) {
+        return send_json($client, '404 Not Found', {
+            ok => JSON::PP::false,
+            message => "prebuilt csv file not found: $csv_path"
+        });
+    }
+
+    $current_csv_path = $csv_path;
+    my ($ok, $engine_error) = ensure_query_engine($current_csv_path);
+    if (!$ok) {
+        return send_json($client, '500 Internal Server Error', {
+            ok => JSON::PP::false,
+            message => $engine_error
+        });
+    }
+
+    print {$engine_in} "range $lo $hi $page $page_size\n";
+    $output = <$engine_out>;
+    if (!defined $output) {
+        local $/;
+        my $stderr_text = $engine_err ? (<$engine_err> // q{}) : q{};
+        stop_query_engine();
+        return send_json($client, '500 Internal Server Error', {
+            ok => JSON::PP::false,
+            message => "query server connection closed unexpectedly: $stderr_text"
+        });
+    }
+
+    eval { $payload = decode_json($output); 1 } or do {
+        return send_json($client, '500 Internal Server Error', {
+            ok => JSON::PP::false,
+            message => 'range search returned invalid JSON',
+            error => $output
+        });
+    };
+
+    return send_json($client, '200 OK', $payload);
+}
+
+sub handle_top {
+    my ($client, $query) = @_;
+    my %params = parse_query_string($query);
+    my $count  = $params{count} // 1000000;
+    my $output;
+    my $payload;
+
+    unless ($count =~ /^\d+$/ && $count > 0) {
+        return send_json($client, '400 Bad Request', {
+            ok => JSON::PP::false,
+            message => 'count 값이 올바르지 않습니다.'
+        });
+    }
+
+    my $csv_path = csv_path_for_count($count);
+    if (!-f $csv_path) {
+        return send_json($client, '404 Not Found', {
+            ok => JSON::PP::false,
+            message => "prebuilt csv file not found: $csv_path"
+        });
+    }
+
+    $current_csv_path = $csv_path;
+    my ($ok, $engine_error) = ensure_query_engine($current_csv_path);
+    if (!$ok) {
+        return send_json($client, '500 Internal Server Error', {
+            ok => JSON::PP::false,
+            message => $engine_error
+        });
+    }
+
+    print {$engine_in} "top\n";
+    $output = <$engine_out>;
+    if (!defined $output) {
+        local $/;
+        my $stderr_text = $engine_err ? (<$engine_err> // q{}) : q{};
+        stop_query_engine();
+        return send_json($client, '500 Internal Server Error', {
+            ok => JSON::PP::false,
+            message => "query server connection closed unexpectedly: $stderr_text"
+        });
+    }
+
+    eval { $payload = decode_json($output); 1 } or do {
+        return send_json($client, '500 Internal Server Error', {
+            ok => JSON::PP::false,
+            message => 'top ranking returned invalid JSON',
+            error => $output
+        });
+    };
+
+    return send_json($client, '200 OK', $payload);
+}
+
 sub serve_static {
     my ($client, $path) = @_;
     my $relative = $path eq '/' ? 'index.html' : substr($path, 1);
@@ -359,6 +465,10 @@ while (my $client = $server->accept()) {
         handle_generate($client, $query);
     } elsif ($path eq '/api/search') {
         handle_search($client, $query);
+    } elsif ($path eq '/api/range') {
+        handle_range($client, $query);
+    } elsif ($path eq '/api/top') {
+        handle_top($client, $query);
     } else {
         serve_static($client, $path);
     }

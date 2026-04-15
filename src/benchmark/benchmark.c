@@ -11,9 +11,11 @@
 #include "../btree/btree.h"
 #include "../bplus_tree/bplus_tree.h"
 
+long long g_op_count = 0;
+
 typedef struct {
     double avg_us;
-    double ops;
+    long long ops;
 } TimingResult;
 
 static long long now_ns(void) {
@@ -25,17 +27,20 @@ static long long now_ns(void) {
 static TimingResult benchmark_single_linear(Player *players, int count, int target_id, int iterations) {
     int i;
     long long total = 0;
+    long long ops_total = 0;
 
     for (i = 0; i < iterations; ++i) {
         long long start = now_ns();
+        g_op_count = 0;
         (void)linear_search(players, count, target_id);
         total += now_ns() - start;
+        ops_total += g_op_count;
     }
 
     {
         TimingResult result;
         result.avg_us = (double)total / iterations / 1000.0;
-        result.ops = result.avg_us > 0.0 ? 1000000.0 / result.avg_us : 0.0;
+        result.ops = ops_total / iterations;
         return result;
     }
 }
@@ -43,17 +48,20 @@ static TimingResult benchmark_single_linear(Player *players, int count, int targ
 static TimingResult benchmark_single_btree(BTree *tree, int target_id, int iterations) {
     int i;
     long long total = 0;
+    long long ops_total = 0;
 
     for (i = 0; i < iterations; ++i) {
         long long start = now_ns();
+        g_op_count = 0;
         (void)btree_search(tree, target_id);
         total += now_ns() - start;
+        ops_total += g_op_count;
     }
 
     {
         TimingResult result;
         result.avg_us = (double)total / iterations / 1000.0;
-        result.ops = result.avg_us > 0.0 ? 1000000.0 / result.avg_us : 0.0;
+        result.ops = ops_total / iterations;
         return result;
     }
 }
@@ -61,17 +69,20 @@ static TimingResult benchmark_single_btree(BTree *tree, int target_id, int itera
 static TimingResult benchmark_single_bptree(BPTree *tree, int target_id, int iterations) {
     int i;
     long long total = 0;
+    long long ops_total = 0;
 
     for (i = 0; i < iterations; ++i) {
         long long start = now_ns();
+        g_op_count = 0;
         (void)bptree_search(tree, target_id);
         total += now_ns() - start;
+        ops_total += g_op_count;
     }
 
     {
         TimingResult result;
         result.avg_us = (double)total / iterations / 1000.0;
-        result.ops = result.avg_us > 0.0 ? 1000000.0 / result.avg_us : 0.0;
+        result.ops = ops_total / iterations;
         return result;
     }
 }
@@ -79,17 +90,20 @@ static TimingResult benchmark_single_bptree(BPTree *tree, int target_id, int ite
 static TimingResult benchmark_range_linear(Player *players, int count, int lo, int hi, int iterations) {
     int i;
     long long total = 0;
+    long long ops_total = 0;
 
     for (i = 0; i < iterations; ++i) {
         long long start = now_ns();
+        g_op_count = 0;
         (void)linear_range(players, count, lo, hi);
         total += now_ns() - start;
+        ops_total += g_op_count;
     }
 
     {
         TimingResult result;
         result.avg_us = (double)total / iterations / 1000.0;
-        result.ops = result.avg_us > 0.0 ? 1000000.0 / result.avg_us : 0.0;
+        result.ops = ops_total / iterations;
         return result;
     }
 }
@@ -97,17 +111,20 @@ static TimingResult benchmark_range_linear(Player *players, int count, int lo, i
 static TimingResult benchmark_range_btree(BTree *tree, int lo, int hi, int iterations) {
     int i;
     long long total = 0;
+    long long ops_total = 0;
 
     for (i = 0; i < iterations; ++i) {
         long long start = now_ns();
+        g_op_count = 0;
         (void)btree_range(tree, lo, hi);
         total += now_ns() - start;
+        ops_total += g_op_count;
     }
 
     {
         TimingResult result;
         result.avg_us = (double)total / iterations / 1000.0;
-        result.ops = result.avg_us > 0.0 ? 1000000.0 / result.avg_us : 0.0;
+        result.ops = ops_total / iterations;
         return result;
     }
 }
@@ -115,17 +132,20 @@ static TimingResult benchmark_range_btree(BTree *tree, int lo, int hi, int itera
 static TimingResult benchmark_range_bptree(BPTree *tree, int lo, int hi, int iterations) {
     int i;
     long long total = 0;
+    long long ops_total = 0;
 
     for (i = 0; i < iterations; ++i) {
         long long start = now_ns();
+        g_op_count = 0;
         (void)bptree_range(tree, lo, hi);
         total += now_ns() - start;
+        ops_total += g_op_count;
     }
 
     {
         TimingResult result;
         result.avg_us = (double)total / iterations / 1000.0;
-        result.ops = result.avg_us > 0.0 ? 1000000.0 / result.avg_us : 0.0;
+        result.ops = ops_total / iterations;
         return result;
     }
 }
@@ -133,7 +153,13 @@ static TimingResult benchmark_range_bptree(BPTree *tree, int lo, int hi, int ite
 static int compare_players_desc(const void *lhs, const void *rhs) {
     const Player *a = (const Player *)lhs;
     const Player *b = (const Player *)rhs;
-    return b->score - a->score;
+    if (b->win_rate > a->win_rate) {
+        return 1;
+    }
+    if (b->win_rate < a->win_rate) {
+        return -1;
+    }
+    return a->id - b->id;
 }
 
 static void current_timestamp(char *buffer, size_t size) {
@@ -146,6 +172,46 @@ static void current_timestamp(char *buffer, size_t size) {
     localtime_r(&t, &tm_value);
 #endif
     strftime(buffer, size, "%Y-%m-%d %H:%M:%S", &tm_value);
+}
+
+static void print_json_string(FILE *out, const char *text) {
+    const unsigned char *cursor = (const unsigned char *)(text ? text : "");
+
+    fputc('"', out);
+    while (*cursor) {
+        switch (*cursor) {
+            case '\"':
+                fputs("\\\"", out);
+                break;
+            case '\\':
+                fputs("\\\\", out);
+                break;
+            case '\b':
+                fputs("\\b", out);
+                break;
+            case '\f':
+                fputs("\\f", out);
+                break;
+            case '\n':
+                fputs("\\n", out);
+                break;
+            case '\r':
+                fputs("\\r", out);
+                break;
+            case '\t':
+                fputs("\\t", out);
+                break;
+            default:
+                if (*cursor < 0x20) {
+                    fprintf(out, "\\u%04x", *cursor);
+                } else {
+                    fputc(*cursor, out);
+                }
+                break;
+        }
+        cursor++;
+    }
+    fputc('"', out);
 }
 
 static int write_json(
@@ -191,30 +257,25 @@ static int write_json(
     fprintf(fp, "  },\n");
     fprintf(fp, "  \"single_search\": {\n");
     fprintf(fp, "    \"target_id\": %d,\n", target_id);
-    fprintf(fp, "    \"linear\": {\"avg_us\": %.3f, \"ops\": %.3f},\n", single_linear.avg_us, single_linear.ops);
-    fprintf(fp, "    \"btree\": {\"avg_us\": %.3f, \"ops\": %.3f},\n", single_btree.avg_us, single_btree.ops);
-    fprintf(fp, "    \"bptree\": {\"avg_us\": %.3f, \"ops\": %.3f}\n", single_bptree.avg_us, single_bptree.ops);
+    fprintf(fp, "    \"linear\": {\"avg_us\": %.3f, \"ops\": %lld},\n", single_linear.avg_us, single_linear.ops);
+    fprintf(fp, "    \"btree\": {\"avg_us\": %.3f, \"ops\": %lld},\n", single_btree.avg_us, single_btree.ops);
+    fprintf(fp, "    \"bptree\": {\"avg_us\": %.3f, \"ops\": %lld}\n", single_bptree.avg_us, single_bptree.ops);
     fprintf(fp, "  },\n");
     fprintf(fp, "  \"range_search\": {\n");
     fprintf(fp, "    \"lo\": %d,\n", lo);
     fprintf(fp, "    \"hi\": %d,\n", hi);
     fprintf(fp, "    \"count\": %d,\n", range_count);
-    fprintf(fp, "    \"linear\": {\"avg_us\": %.3f, \"ops\": %.3f},\n", range_linear.avg_us, range_linear.ops);
-    fprintf(fp, "    \"btree\": {\"avg_us\": %.3f, \"ops\": %.3f},\n", range_btree.avg_us, range_btree.ops);
-    fprintf(fp, "    \"bptree\": {\"avg_us\": %.3f, \"ops\": %.3f}\n", range_bptree.avg_us, range_bptree.ops);
+    fprintf(fp, "    \"linear\": {\"avg_us\": %.3f, \"ops\": %lld},\n", range_linear.avg_us, range_linear.ops);
+    fprintf(fp, "    \"btree\": {\"avg_us\": %.3f, \"ops\": %lld},\n", range_btree.avg_us, range_btree.ops);
+    fprintf(fp, "    \"bptree\": {\"avg_us\": %.3f, \"ops\": %lld}\n", range_bptree.avg_us, range_bptree.ops);
     fprintf(fp, "  },\n");
     fprintf(fp, "  \"top_players\": [\n");
     for (i = 0; i < 10 && i < count; ++i) {
-        fprintf(
-            fp,
-            "    {\"rank\": %d, \"id\": %d, \"name\": \"%s\", \"score\": %d, \"tier\": \"%s\"}%s\n",
-            i + 1,
-            copy[i].id,
-            copy[i].name,
-            copy[i].score,
-            copy[i].tier,
-            (i == 9 || i == count - 1) ? "" : ","
-        );
+        fprintf(fp, "    {\"id\": %d, \"nickname\": ", copy[i].id);
+        print_json_string(fp, copy[i].name);
+        fprintf(fp, ", \"win_rate\": %.2f, \"rank\": ", copy[i].win_rate);
+        print_json_string(fp, copy[i].rank);
+        fprintf(fp, "}%s\n", (i == 9 || i == count - 1) ? "" : ",");
     }
     fprintf(fp, "  ]\n");
     fprintf(fp, "}\n");

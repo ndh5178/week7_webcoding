@@ -35,9 +35,9 @@ int main(int argc, char **argv) {
         }
 
         populate_players(players, count);
-        printf("id,name,score,tier\n");
+        printf("id,닉네임,승률(%%),랭크\n");
         for (i = 0; i < count; ++i) {
-            printf("%d,%s,%d,%s\n", players[i].id, players[i].name, players[i].score, players[i].tier);
+            printf("%d,%s,%.2f,%s\n", players[i].id, players[i].name, players[i].win_rate, players[i].rank);
         }
         free(players);
     }

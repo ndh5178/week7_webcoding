@@ -2,6 +2,8 @@
 
 #include <stdlib.h>
 
+extern long long g_op_count;
+
 typedef struct {
     int did_split;
     int promoted_key;
@@ -187,7 +189,14 @@ static BPLeaf *find_leaf_node(BPNode *node, int key) {
     BPNode *current = node;
 
     while (current && !current->is_leaf) {
-        int idx = upper_bound_keys(current->keys, current->num_keys, key);
+        int idx = 0;
+        while (idx < current->num_keys && current->keys[idx] <= key) {
+            g_op_count++;
+            idx++;
+        }
+        if (idx < current->num_keys) {
+            g_op_count++;
+        }
         current = current->children[idx];
     }
 
@@ -254,7 +263,7 @@ void bptree_insert(BPTree *tree, int key, void *record_ptr) {
 
 void *bptree_search(BPTree *tree, int key) {
     BPLeaf *leaf;
-    int idx;
+    int i;
 
     if (!tree || !tree->root) {
         return NULL;
@@ -265,9 +274,14 @@ void *bptree_search(BPTree *tree, int key) {
         return NULL;
     }
 
-    idx = lower_bound_keys(leaf->keys, leaf->num_keys, key);
-    if (idx < leaf->num_keys && leaf->keys[idx] == key) {
-        return leaf->ptrs[idx];
+    for (i = 0; i < leaf->num_keys; ++i) {
+        g_op_count++;
+        if (leaf->keys[i] == key) {
+            return leaf->ptrs[i];
+        }
+        if (leaf->keys[i] > key) {
+            return NULL;
+        }
     }
 
     return NULL;
@@ -286,6 +300,7 @@ int bptree_range(BPTree *tree, int lo, int hi) {
         int i;
 
         for (i = 0; i < leaf->num_keys; ++i) {
+            g_op_count++;
             if (leaf->keys[i] < lo) {
                 continue;
             }

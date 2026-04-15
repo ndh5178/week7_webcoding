@@ -57,7 +57,7 @@ csv: datagen $(DATA_DIR)
 webdata: bench csv
 	./$(BIN_DIR)/bench $(CSV_PATH) web/assets/results.json
 
-check: test
+check: demo_query query_server bench test
 	./$(BIN_DIR)/test_trees
 
 result: webdata

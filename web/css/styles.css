@@ -226,6 +226,17 @@ button, select, input {
   width: 100%;
 }
 
+/* 범위 탐색 lo/hi 입력 박스 — 두 칸 나란히 배치 */
+.range-input-wrap {
+  width: 100%;
+  display: flex;
+  gap: 10px;
+}
+
+.range-input-wrap .id-input {
+  flex: 1;
+}
+
 .id-input {
   width: 100%;
   color: var(--text);
@@ -278,6 +289,11 @@ button, select, input {
   margin-top: 16px;
   font-size: 1.15rem;
   font-weight: 700;
+}
+
+.run-btn.loading {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .result-card.highlight {
@@ -352,6 +368,40 @@ button, select, input {
   margin-top: 18px;
 }
 
+.table-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.table-pagination p {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.page-btn {
+  color: var(--text);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(35, 34, 32, 0.72);
+  border-radius: 12px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: transform 160ms ease, border-color 160ms ease, opacity 160ms ease;
+}
+
+.page-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgba(125, 115, 231, 0.48);
+}
+
+.page-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -376,15 +426,7 @@ tbody tr:hover {
 .player-name {
   display: flex;
   align-items: center;
-  gap: 12px;
   font-weight: 700;
-}
-
-.name-bar {
-  display: inline-block;
-  height: 10px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, rgba(125, 115, 231, 0.85), rgba(139, 131, 235, 0.95));
 }
 
 .tier-badge {
@@ -431,5 +473,9 @@ tbody tr:hover {
   .result-card,
   .stat-card {
     padding: 18px;
+  }
+
+  .table-pagination {
+    justify-content: space-between;
   }
 }

@@ -63,6 +63,23 @@
                 min="1"
               />
             </div>
+
+            <div class="range-input-wrap" id="range-input-wrap">
+              <input
+                type="number"
+                id="range-lo"
+                class="id-input"
+                placeholder="시작 ID (기본: 1)"
+                min="1"
+              />
+              <input
+                type="number"
+                id="range-hi"
+                class="id-input"
+                placeholder="끝 ID (기본: 데이터셋 1%)"
+                min="1"
+              />
+            </div>
           </div>
         </div>
 
@@ -143,12 +160,17 @@
                 <th>순위</th>
                 <th>Player ID</th>
                 <th>닉네임</th>
-                <th>점수</th>
-                <th>티어</th>
+                <th>승률</th>
+                <th>랭크</th>
               </tr>
             </thead>
             <tbody id="ranking-body"></tbody>
           </table>
+        </div>
+        <div class="table-pagination" id="table-pagination" hidden>
+          <button class="page-btn" id="page-prev" type="button">이전 10개</button>
+          <p id="page-info">1 / 1 페이지</p>
+          <button class="page-btn" id="page-next" type="button">다음 10개</button>
         </div>
       </section>
     </div>
