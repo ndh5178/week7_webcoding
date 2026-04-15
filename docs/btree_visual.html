@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>B 트리 범위 탐색 시각화</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Courier New', monospace; background: #0f1117; color: #e2e8f0; padding: 30px; }
+  h1 { text-align: center; font-size: 20px; margin-bottom: 6px; color: #63b3ed; }
+  .subtitle { text-align: center; font-size: 13px; color: #718096; margin-bottom: 30px; }
+
+  .tree-wrap { display: flex; flex-direction: column; align-items: center; gap: 0; }
+
+  .level { display: flex; justify-content: center; align-items: center; gap: 8px; position: relative; }
+
+  .node {
+    border: 2px solid #4a5568;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 13px;
+    transition: all 0.4s ease;
+    position: relative;
+    background: #1a202c;
+    white-space: nowrap;
+  }
+  .node.visited   { border-color: #f6ad55; background: #2d2010; color: #f6ad55; }
+  .node.matched   { border-color: #48bb78; background: #1a2e20; color: #48bb78; }
+  .node.skipped   { border-color: #4a5568; background: #1a202c; color: #4a5568; opacity: 0.4; }
+  .node.root-node { border-color: #63b3ed; background: #1a2535; }
+
+  .connector-wrap {
+    display: flex;
+    justify-content: center;
+    height: 30px;
+    position: relative;
+  }
+  svg.lines { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: visible; }
+
+  .step-panel {
+    margin-top: 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .step {
+    background: #1a202c;
+    border: 1px solid #2d3748;
+    border-radius: 8px;
+    padding: 14px 18px;
+    font-size: 13px;
+    opacity: 0.3;
+    transition: all 0.3s ease;
+  }
+  .step.active { opacity: 1; border-color: #f6ad55; }
+  .step .step-title { color: #f6ad55; font-weight: bold; margin-bottom: 6px; }
+  .step .step-body { color: #a0aec0; line-height: 1.8; }
+  .step .highlight { color: #48bb78; }
+  .step .skip { color: #718096; text-decoration: line-through; }
+  .step .count { color: #fc8181; font-weight: bold; }
+
+  .controls {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 24px;
+  }
+  button {
+    padding: 10px 24px;
+    border-radius: 8px;
+    border: none;
+    font-size: 14px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.2s;
+  }
+  #prevBtn { background: #2d3748; color: #a0aec0; }
+  #nextBtn { background: #3182ce; color: white; }
+  #prevBtn:hover { background: #4a5568; }
+  #nextBtn:hover { background: #2b6cb0; }
+  #resetBtn { background: #1a202c; color: #718096; border: 1px solid #4a5568; }
+
+  .counter {
+    text-align: center;
+    margin-top: 16px;
+    font-size: 15px;
+    color: #a0aec0;
+  }
+  .counter span { color: #fc8181; font-size: 22px; font-weight: bold; }
+
+  .range-info {
+    text-align: center;
+    margin-bottom: 20px;
+    font-size: 14px;
+    color: #a0aec0;
+  }
+  .range-info b { color: #63b3ed; }
+</style>
+</head>
+<body>
+
+<h1>B 트리 범위 탐색</h1>
+<p class="subtitle">ORDER = 32 · 데이터 1 ~ 40</p>
+
+<div class="range-info">탐색 범위: <b>lo = 20</b> ~ <b>hi = 40</b></div>
+
+<!-- 트리 시각화 -->
+<div class="tree-wrap">
+
+  <!-- 루트 -->
+  <div class="level">
+    <div class="node root-node" id="n-root">33</div>
+  </div>
+
+  <div style="height:30px; display:flex; align-items:center; justify-content:center;">
+    <svg width="300" height="30">
+      <line x1="150" y1="0" x2="80"  y2="30" stroke="#4a5568" stroke-width="1.5"/>
+      <line x1="150" y1="0" x2="220" y2="30" stroke="#4a5568" stroke-width="1.5"/>
+    </svg>
+  </div>
+
+  <!-- 레벨 1 내부노드 (사실상 이 예시에선 루트 바로 아래가 리프) -->
+  <div class="level" style="gap: 60px;">
+    <div class="node" id="n-left">리프1<br><small>[1 ~ 32]</small></div>
+    <div class="node" id="n-right">리프2<br><small>[33 ~ 40]</small></div>
+  </div>
+
+</div>
+
+<!-- 단계 설명 -->
+<div class="step-panel">
+
+  <div class="step" id="s0">
+    <div class="step-title">📍 STEP 0 — 시작</div>
+    <div class="step-body">
+      루트 노드: keys = [<b>33</b>]<br>
+      리프1: [1 ~ 32] (32개)<br>
+      리프2: [33 ~ 40] (8개)<br><br>
+      lo = 20, hi = 40 범위 탐색 시작
+    </div>
+  </div>
+
+  <div class="step" id="s1">
+    <div class="step-title">🔍 STEP 1 — 루트에서 방향 결정</div>
+    <div class="step-body">
+      keys[0] = 33, lo = 20<br>
+      33 &lt;= 20 ? <span class="highlight">NO</span> → i = 0 에서 멈춤<br>
+      → <span class="highlight">children[0] (리프1) 방문</span><br><br>
+      비교 횟수: <span class="count">+1</span>
+    </div>
+  </div>
+
+  <div class="step" id="s2">
+    <div class="step-title">🍃 STEP 2 — 리프1 [1 ~ 32] 탐색</div>
+    <div class="step-body">
+      1, 2 ... 19 → 범위 밖 (lo=20 미만)<br>
+      <span class="highlight">20, 21, 22 ... 32 → count++ (13개)</span><br><br>
+      비교 횟수: <span class="count">+32</span> (전체 스캔)
+    </div>
+  </div>
+
+  <div class="step" id="s3">
+    <div class="step-title">🔍 STEP 3 — 루트로 돌아와서 오른쪽 자식 확인</div>
+    <div class="step-body">
+      keys[0] = 33, hi = 40<br>
+      33 &lt;= 40 ? <span class="highlight">YES</span> → i = 1<br>
+      → <span class="highlight">children[1] (리프2) 방문</span><br><br>
+      비교 횟수: <span class="count">+1</span>
+    </div>
+  </div>
+
+  <div class="step" id="s4">
+    <div class="step-title">🍃 STEP 4 — 리프2 [33 ~ 40] 탐색</div>
+    <div class="step-body">
+      <span class="highlight">33, 34, 35, 36, 37, 38, 39, 40 → count++ (8개)</span><br>
+      41 없음 → 리프 끝<br><br>
+      비교 횟수: <span class="count">+8</span>
+    </div>
+  </div>
+
+  <div class="step" id="s5">
+    <div class="step-title">✅ 완료</div>
+    <div class="step-body">
+      결과: 20 ~ 40 총 <span class="highlight">21개</span> 발견<br>
+      총 비교 횟수: 1 + 32 + 1 + 8 = <span class="count">42번</span><br><br>
+      <span style="color:#718096">※ 리프1에서 1~19는 범위 밖이지만<br>
+      리프 내부에서 전체를 순회하기 때문에 32번 다 비교함</span>
+    </div>
+  </div>
+
+</div>
+
+<div class="counter">총 비교 횟수: <span id="cnt">0</span> 번</div>
+
+<div class="controls">
+  <button id="resetBtn" onclick="reset()">↺ 처음</button>
+  <button id="prevBtn" onclick="prev()">← 이전</button>
+  <button id="nextBtn" onclick="next()">다음 →</button>
+</div>
+
+<script>
+  const steps = [
+    {
+      active: ['s0'],
+      nodes: { root: '', left: '', right: '' },
+      count: 0
+    },
+    {
+      active: ['s0','s1'],
+      nodes: { root: 'visited', left: '', right: '' },
+      count: 1
+    },
+    {
+      active: ['s0','s1','s2'],
+      nodes: { root: 'visited', left: 'visited', right: '' },
+      count: 33
+    },
+    {
+      active: ['s0','s1','s2','s3'],
+      nodes: { root: 'visited', left: 'matched', right: '' },
+      count: 34
+    },
+    {
+      active: ['s0','s1','s2','s3','s4'],
+      nodes: { root: 'visited', left: 'matched', right: 'visited' },
+      count: 42
+    },
+    {
+      active: ['s0','s1','s2','s3','s4','s5'],
+      nodes: { root: 'visited', left: 'matched', right: 'matched' },
+      count: 42
+    },
+  ];
+
+  let cur = 0;
+
+  function render() {
+    const s = steps[cur];
+
+    // 노드 상태
+    const nodeMap = { root: 'n-root', left: 'n-left', right: 'n-right' };
+    for (const [key, cls] of Object.entries(s.nodes)) {
+      const el = document.getElementById(nodeMap[key]);
+      el.className = 'node ' + cls;
+      if (key === 'root') el.classList.add('root-node');
+    }
+
+    // 스텝 활성화
+    document.querySelectorAll('.step').forEach(el => el.classList.remove('active'));
+    s.active.forEach(id => document.getElementById(id).classList.add('active'));
+
+    // 카운터
+    document.getElementById('cnt').textContent = s.count;
+
+    document.getElementById('prevBtn').disabled = cur === 0;
+    document.getElementById('nextBtn').disabled = cur === steps.length - 1;
+  }
+
+  function next()  { if (cur < steps.length - 1) { cur++; render(); } }
+  function prev()  { if (cur > 0) { cur--; render(); } }
+  function reset() { cur = 0; render(); }
+
+  render();
+</script>
+</body>
+</html>

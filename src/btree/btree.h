@@ -1,24 +1,106 @@
+/*
+ * btree.h  ─  B 트리 (B-Tree) 인터페이스
+ *
+ * ┌─────────────────────────────────────────────────────────────┐
+ * │  B 트리란?                                                   │
+ * │  - 모든 노드(내부 + 리프)에 키와 레코드 포인터를 저장한다.         │
+ * │  - 탐색 시 어떤 노드에서든 키를 발견하면 바로 반환 가능.           │
+ * │  - 삽입 시 꽉 찬 노드는 중간 키를 부모로 올리며 (move-up) 분할.   │
+ * │  - 범위 탐색은 재귀적으로 트리 전체를 순회해야 해서 B+ 트리보다     │
+ * │    느리다.                                                   │
+ * └─────────────────────────────────────────────────────────────┘
+ */
+
 #ifndef BTREE_H
 #define BTREE_H
 
-#define BT_ORDER 32  /* 노드당 최대 키 수. 100만 건 기준 트리 높이 ~4 레벨 */
+/*
+ * BT_ORDER: 노드 하나에 저장할 수 있는 최대 키 개수.
+ *
+ * 이 값을 32로 설정하면:
+ *   - 한 노드에 최대 32개의 키 저장
+ *   - 자식 포인터는 최대 33개 (키 개수 + 1)
+ *   - 100만 건 데이터 기준 트리 높이 ≈ 4 레벨
+ *     → log_16(1,000,000) ≈ 4.98 이므로 5레벨 이내 탐색 완료
+ *
+ * 값이 클수록 높이가 낮아져 탐색이 빠르지만,
+ * 노드 크기가 커져 메모리 캐시 효율이 떨어질 수 있다.
+ */
+#define BT_ORDER 32
 
+/*
+ * BTNode: B 트리 노드 구조체
+ *
+ * B 트리는 내부 노드와 리프 노드가 구조적으로 동일하다.
+ * is_leaf 플래그로 둘을 구별한다.
+ *
+ *  ┌──────────────────────────────────────────────────────┐
+ *  │  keys:     정렬된 키 배열 (최대 BT_ORDER개)            │
+ *  │  ptrs:     각 키에 대응하는 레코드 포인터 배열           │
+ *  │            (B 트리는 내부 노드에도 레코드를 저장!)        │
+ *  │  children: 자식 노드 포인터 배열 (최대 BT_ORDER+1개)     │
+ *  │            children[i] 에는 keys[i-1] < k < keys[i]  │
+ *  │            범위의 키들이 들어있다.                       │
+ *  │  num_keys: 현재 저장된 키 개수                          │
+ *  │  is_leaf:  1이면 리프 노드, 0이면 내부 노드              │
+ *  └──────────────────────────────────────────────────────┘
+ *
+ *  메모리 구조 예시 (키가 3개인 내부 노드):
+ *
+ *    children[0]  keys[0]  children[1]  keys[1]  children[2]  keys[2]  children[3]
+ *       (<10)       10        (10~20)     20        (20~30)      30        (>30)
+ */
 typedef struct BTNode {
-    int            keys[BT_ORDER];
-    void          *ptrs[BT_ORDER];          /* 키에 대응하는 레코드 포인터 (리프처럼 사용) */
-    struct BTNode *children[BT_ORDER + 1];
-    int            num_keys;
-    int            is_leaf;
+    int            keys[BT_ORDER];              /* 정렬된 키 배열 */
+    void          *ptrs[BT_ORDER];              /* 키에 대응하는 레코드 포인터 (리프처럼 사용) */
+    struct BTNode *children[BT_ORDER + 1];      /* 자식 노드 포인터 배열 */
+    int            num_keys;                    /* 현재 키 개수 */
+    int            is_leaf;                     /* 1 = 리프 노드, 0 = 내부 노드 */
 } BTNode;
 
+/*
+ * BTree: B 트리 최상위 구조체
+ *
+ * 루트 노드 포인터 하나만 갖는다.
+ * 삽입이 반복되어 루트가 분할되면, 새 루트가 여기에 저장된다.
+ */
 typedef struct {
     BTNode *root;
 } BTree;
 
+/* ──────────────────── 공개 API ──────────────────── */
+
+/*
+ * btree_create: 빈 B 트리를 생성해 반환한다.
+ * 최초 루트는 리프 노드로 시작한다.
+ */
 BTree *btree_create(void);
+
+/*
+ * btree_insert: key와 그에 대응하는 record_ptr를 트리에 삽입한다.
+ * - key가 이미 존재하면 record_ptr만 갱신한다.
+ * - 노드가 가득 차면 분할(split)이 발생하고 키가 부모로 올라간다.
+ */
 void   btree_insert(BTree *tree, int key, void *record_ptr);
+
+/*
+ * btree_search: key에 해당하는 레코드 포인터를 반환한다.
+ * - 루트부터 내려가며 모든 노드에서 키를 검사한다.
+ * - 발견하면 즉시 반환, 없으면 NULL 반환.
+ */
 void  *btree_search(BTree *tree, int key);
+
+/*
+ * btree_range: lo 이상 hi 이하 범위에 속하는 레코드 개수를 반환한다.
+ * - B 트리는 리프뿐 아니라 내부 노드도 순회해야 하므로
+ *   B+ 트리의 연결 리스트 방식보다 느리다.
+ */
 int    btree_range(BTree *tree, int lo, int hi);
+
+/*
+ * btree_free: 트리가 차지하는 모든 메모리를 해제한다.
+ * (레코드 포인터가 가리키는 데이터는 해제하지 않는다)
+ */
 void   btree_free(BTree *tree);
 
-#endif
+#endif /* BTREE_H */
