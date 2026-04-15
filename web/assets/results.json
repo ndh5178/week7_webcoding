@@ -1,33 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-04-15 11:06:42",
-    "dataset_size": 100000,
+    "generated_at": "2026-04-15 12:09:47",
+    "dataset_size": 1000000,
     "iterations": 5
   },
   "single_search": {
-    "target_id": 50000,
-    "linear": {"avg_us": 109.010, "ops": 50000},
-    "btree": {"avg_us": 0.260, "ops": 55},
-    "bptree": {"avg_us": 0.180, "ops": 55}
+    "target_id": 500000,
+    "linear": {"avg_us": 3042.973, "ops": 500000},
+    "btree": {"avg_us": 0.660, "ops": 37},
+    "bptree": {"avg_us": 0.220, "ops": 37}
+  },
+  "name_bridge_search": {
+    "target_name": "Unknown",
+    "resolved_id": 1,
+    "note": "name lookup is resolved by linear scan first, then B-Tree/B+Tree search reuse the resolved id",
+    "linear_name": {"avg_us": 0.180, "ops": 1},
+    "btree_by_id": {"avg_us": 0.300, "ops": 5},
+    "bptree_by_id": {"avg_us": 0.200, "ops": 5}
   },
   "range_search": {
-    "lo": 50000,
-    "hi": 50999,
+    "lo": 500000,
+    "hi": 500999,
     "count": 1000,
-    "linear": {"avg_us": 221.301, "ops": 100000},
-    "btree": {"avg_us": 2.140, "ops": 1134},
-    "bptree": {"avg_us": 1.100, "ops": 1055}
+    "linear": {"avg_us": 6915.286, "ops": 1000000},
+    "btree": {"avg_us": 28.703, "ops": 1115},
+    "bptree": {"avg_us": 2.140, "ops": 1037}
   },
   "top_players": [
-    {"id": 3164, "nickname": "StarlightX_3163", "win_rate": 98.99, "rank": "챌린저"},
-    {"id": 8864, "nickname": "StarlightX_8863", "win_rate": 98.99, "rank": "챌린저"},
-    {"id": 14564, "nickname": "StarlightX_4563", "win_rate": 98.99, "rank": "챌린저"},
-    {"id": 20264, "nickname": "StarlightX_263", "win_rate": 98.99, "rank": "챌린저"},
-    {"id": 25964, "nickname": "StarlightX_5963", "win_rate": 98.99, "rank": "챌린저"},
-    {"id": 31664, "nickname": "StarlightX_1663", "win_rate": 98.99, "rank": "챌린저"},
-    {"id": 37364, "nickname": "StarlightX_7363", "win_rate": 98.99, "rank": "챌린저"},
-    {"id": 43064, "nickname": "StarlightX_3063", "win_rate": 98.99, "rank": "챌린저"},
-    {"id": 48764, "nickname": "StarlightX_8763", "win_rate": 98.99, "rank": "챌린저"},
-    {"id": 54464, "nickname": "StarlightX_4463", "win_rate": 98.99, "rank": "챌린저"}
+    {"id": 11776, "nickname": "Unknown", "win_rate": 100.00, "rank": "DIAMOND_IV"},
+    {"id": 12613, "nickname": "Unknown", "win_rate": 100.00, "rank": "DIAMOND_IV"},
+    {"id": 13374, "nickname": "Unknown", "win_rate": 100.00, "rank": "DIAMOND_IV"},
+    {"id": 13490, "nickname": "Unknown", "win_rate": 100.00, "rank": "DIAMOND_IV"},
+    {"id": 17579, "nickname": "Unknown", "win_rate": 100.00, "rank": "DIAMOND_IV"},
+    {"id": 18277, "nickname": "Unknown", "win_rate": 100.00, "rank": "DIAMOND_IV"},
+    {"id": 18322, "nickname": "Unknown", "win_rate": 100.00, "rank": "DIAMOND_IV"},
+    {"id": 18555, "nickname": "Unknown", "win_rate": 100.00, "rank": "DIAMOND_IV"},
+    {"id": 19010, "nickname": "Unknown", "win_rate": 100.00, "rank": "DIAMOND_IV"},
+    {"id": 19913, "nickname": "Unknown", "win_rate": 100.00, "rank": "DIAMOND_IV"}
   ]
 }

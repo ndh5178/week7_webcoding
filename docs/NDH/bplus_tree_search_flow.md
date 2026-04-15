@@ -1,27 +1,24 @@
 # B+ 트리 탐색 흐름 정리
 
-이 문서는 **현재 프로젝트의 B+ 트리 구현 기준**으로  
-`ID 하나를 B+ 트리에서 어떻게 찾는지`를 코드 중심으로 정리한 문서입니다.
+이 문서는 **현재 프로젝트 코드 기준**으로  
+`B+ 트리에서 ID를 어떻게 찾는지`를 정리한 문서입니다.
 
 여기서는 웹, 서버, API 흐름은 빼고  
 **B+ 트리 내부에서 탐색이 어떻게 진행되는지**만 봅니다.
 
-관련 핵심 파일:
-- [C:\Users\user\Desktop\정글\수요코딩회\7주차\week7_webcoding\src\bplus_tree\bplus_tree.c](C:\Users\user\Desktop\정글\수요코딩회\7주차\week7_webcoding\src\bplus_tree\bplus_tree.c)
-- [C:\Users\user\Desktop\정글\수요코딩회\7주차\week7_webcoding\src\bplus_tree\bplus_tree.h](C:\Users\user\Desktop\정글\수요코딩회\7주차\week7_webcoding\src\bplus_tree\bplus_tree.h)
+관련 파일:
+- [bplus_tree.c](C:\Users\user\Desktop\정글\수요코딩회\7주차\week7_webcoding\src\bplus_tree\bplus_tree.c)
+- [bplus_tree.h](C:\Users\user\Desktop\정글\수요코딩회\7주차\week7_webcoding\src\bplus_tree\bplus_tree.h)
 
 ---
 
-## 1. B+ 트리에서 실제 데이터를 어디에 저장하는가
+## 1. 현재 코드에서 중요한 구조
 
-현재 구현에서 중요한 점은:
-
-- **내부 노드**는 길 안내 역할
-- **리프 노드**는 실제 `key -> record_ptr` 저장 역할
-
-헤더를 보면 구조가 이렇게 나뉘어 있습니다.
+현재 헤더 파일에는 B+ 트리의 핵심 구조가 이렇게 정의되어 있습니다.
 
 ```c
+#define BP_ORDER 32
+
 typedef struct BPLeaf {
     int            keys[BP_ORDER + 1];
     void          *ptrs[BP_ORDER + 1];
@@ -40,23 +37,24 @@ typedef struct BPNode {
 } BPNode;
 ```
 
-핵심은:
-- `BPNode`는 트리 노드
-- `is_leaf == 1` 이면 이 노드는 리프 노드
-- 리프 노드일 때는 `leaf` 안에 실제 key와 ptr이 들어 있음
+핵심 해석:
+- `BP_ORDER = 32`
+- 내부 노드는 `keys[]` 와 `children[]` 로 다음 자식을 고르는 역할
+- 리프 노드는 `BPLeaf` 안에 실제 `key -> ptr`를 저장
+- 리프들은 `next`로 연결되어 있어서 범위 탐색이 가능
 
-즉 B+ 트리에서 **실제 Player 포인터는 leaf->ptrs[]에 저장**됩니다.
+즉 현재 구현도 **실제 데이터 포인터는 leaf에 있다**는 B+ 트리 구조를 유지합니다.
 
 ---
 
-## 2. 탐색의 시작점: `bptree_search`
+## 2. 탐색 시작 함수는 `bptree_search()`
 
-ID 탐색의 시작 함수는 이 함수입니다.
+ID 하나를 찾을 때 시작점은 이 함수입니다.
 
 ```c
 void *bptree_search(BPTree *tree, int key) {
     BPLeaf *leaf;
-    int idx;
+    int i;
 
     if (!tree || !tree->root) {
         return NULL;
@@ -67,59 +65,60 @@ void *bptree_search(BPTree *tree, int key) {
         return NULL;
     }
 
-    idx = lower_bound_keys(leaf->keys, leaf->num_keys, key);
-    if (idx < leaf->num_keys && leaf->keys[idx] == key) {
-        return leaf->ptrs[idx];
+    for (i = 0; i < leaf->num_keys; ++i) {
+        g_op_count++;
+        if (leaf->keys[i] == key) {
+            return leaf->ptrs[i];
+        }
+        if (leaf->keys[i] > key) {
+            return NULL;
+        }
     }
 
     return NULL;
 }
 ```
 
-이 함수는 크게 두 단계입니다.
+이 함수의 흐름은 두 단계입니다.
 
-1. `find_leaf_node()`로 **해당 key가 있을 만한 leaf까지 내려감**
-2. 그 leaf 안에서 **진짜 key가 있는지 확인하고 ptr 반환**
-
-즉 탐색의 본질은:
-
-`루트에서 leaf까지 내려가기 + leaf 내부에서 최종 확인`
-
-입니다.
+1. `find_leaf_node()`로 key가 있을 만한 리프를 찾는다.
+2. 그 리프 안에서 실제 key를 확인하고 `ptr`를 반환한다.
 
 ---
 
-## 3. 왜 먼저 leaf까지 내려가는가
+## 3. 현재 구현에서 가장 중요한 점
 
-B+ 트리는 B 트리와 다르게  
-**실제 데이터가 내부 노드가 아니라 리프에만 있기 때문**입니다.
+예전 설명과 비교했을 때 현재 코드에서 달라진 핵심은 이겁니다.
 
-그래서 탐색 흐름은 항상:
+- 내부 노드에서 자식 선택할 때 `upper_bound_keys()`를 직접 쓰지 않음
+- 리프에서 최종 key 찾을 때 `lower_bound_keys()`를 직접 쓰지 않음
+- 대신 **비교 횟수를 세기 위해 순차 비교 방식**이 들어감
 
-1. 내부 노드는 길 찾기
-2. 리프 노드에서 실제 확인
+즉 현재 코드는  
+`탐색 원리 설명용`이면서 동시에  
+`비교 횟수 측정용`으로도 바뀌어 있습니다.
 
-이 됩니다.
-
-즉 B+ 트리에서 내부 노드는:
-- "왼쪽으로 가라"
-- "오른쪽으로 가라"
-- "이 구간은 저 자식이다"
-
-를 알려주는 역할만 합니다.
+그 비교 횟수는 전역 카운터 `g_op_count`로 셉니다.
 
 ---
 
-## 4. leaf를 찾는 함수: `find_leaf_node`
+## 4. leaf까지 내려가는 함수: `find_leaf_node()`
 
-실제 이동은 `find_leaf_node()`에서 일어납니다.
+현재 코드 기준 함수는 이렇게 생겼습니다.
 
 ```c
 static BPLeaf *find_leaf_node(BPNode *node, int key) {
     BPNode *current = node;
 
     while (current && !current->is_leaf) {
-        int idx = upper_bound_keys(current->keys, current->num_keys, key);
+        int idx = 0;
+        while (idx < current->num_keys && current->keys[idx] <= key) {
+            g_op_count++;
+            idx++;
+        }
+        if (idx < current->num_keys) {
+            g_op_count++;
+        }
         current = current->children[idx];
     }
 
@@ -127,226 +126,159 @@ static BPLeaf *find_leaf_node(BPNode *node, int key) {
 }
 ```
 
-이 함수의 의미를 한 줄씩 보면:
+이 함수가 하는 일은:
 
-- `current = node`
-  - 현재 노드를 루트로 시작
-
-- `while (current && !current->is_leaf)`
-  - 리프가 나올 때까지 계속 내려감
-
-- `upper_bound_keys(...)`
-  - 현재 내부 노드에서 `key`가 어느 자식 구간으로 가야 하는지 계산
-
-- `current = current->children[idx]`
-  - 그 자식으로 이동
-
-- 마지막에 `current->leaf` 반환
-  - 최종적으로 도착한 리프 노드의 실제 leaf 구조체 반환
-
-즉 이 함수는  
-**"ID가 속한 leaf 페이지를 찾는 함수"** 라고 보면 됩니다.
+1. 루트에서 시작한다.
+2. 현재 노드가 리프가 아니면, `keys[]`를 왼쪽부터 본다.
+3. `key`보다 작거나 같은 동안 계속 오른쪽으로 이동한다.
+4. 최종적으로 갈 자식 인덱스 `idx`를 정한다.
+5. 그 자식으로 내려간다.
+6. 리프에 도달하면 그 리프의 `BPLeaf *`를 반환한다.
 
 ---
 
-## 5. 내부 노드에서 어느 자식을 선택하는가
+## 5. 내부 노드에서 자식을 고르는 방식
 
-중요한 부분은 이 줄입니다.
-
-```c
-int idx = upper_bound_keys(current->keys, current->num_keys, key);
-```
-
-여기서 `upper_bound_keys()`는
+현재 구현은 내부 노드에서 이렇게 비교합니다.
 
 ```c
-static int upper_bound_keys(const int *keys, int count, int key) {
-    int lo = 0;
-    int hi = count;
-
-    while (lo < hi) {
-        int mid = lo + (hi - lo) / 2;
-        if (keys[mid] <= key) {
-            lo = mid + 1;
-        } else {
-            hi = mid;
-        }
-    }
-
-    return lo;
+while (idx < current->num_keys && current->keys[idx] <= key) {
+    g_op_count++;
+    idx++;
 }
+if (idx < current->num_keys) {
+    g_op_count++;
+}
+current = current->children[idx];
 ```
 
-이 함수가 하는 일:
+이 의미는:
 
-- 현재 노드의 key 배열에서
-- `key보다 큰 값이 처음 나타나는 위치`를 찾음
+- `keys[idx] <= key` 인 동안 계속 오른쪽으로 간다
+- 처음으로 `key`보다 큰 값을 만나면 거기서 멈춘다
+- 멈춘 위치의 `idx`에 해당하는 자식으로 내려간다
 
-쉽게 말하면:
-- key가 10보다 작으면 첫 번째 자식
-- key가 10 이상 20 미만이면 두 번째 자식
-- key가 20 이상 30 미만이면 세 번째 자식
-
-이런 식으로 **구간을 선택**합니다.
-
----
-
-## 6. 왜 `upper_bound_keys`를 쓰는가
-
-B+ 트리 내부 노드의 key는  
-보통 **오른쪽 자식의 최소 key**를 의미합니다.
-
-예를 들어 내부 노드가 이런 key를 가지고 있다고 합시다.
+예를 들어 현재 노드의 key가:
 
 ```text
 [10, 20, 30]
 ```
 
-그러면 자식 구간은 보통 이렇게 해석할 수 있습니다.
+라면 자식 구간은 이렇게 해석할 수 있습니다.
 
-- child[0] : 10보다 작은 값
-- child[1] : 10 이상 20 미만
-- child[2] : 20 이상 30 미만
-- child[3] : 30 이상
+- `child[0]`: 10보다 작은 값
+- `child[1]`: 10 이상 20 미만
+- `child[2]`: 20 이상 30 미만
+- `child[3]`: 30 이상
 
-이 규칙 때문에 `key >= keys[i]` 이면 오른쪽으로 가야 하므로  
-`upper_bound_keys()`를 쓰는 게 자연스럽습니다.
-
-즉:
-- `lower_bound`는 leaf 안에서 최종 위치 찾기
-- `upper_bound`는 내부 노드에서 자식 선택하기
-
-이렇게 역할이 나뉩니다.
+즉 내부 노드는 실제 데이터를 찾는 곳이 아니라  
+**어느 구간으로 내려가야 하는지 정하는 안내판 역할**을 합니다.
 
 ---
 
-## 7. leaf에 도착한 뒤 최종 위치를 찾는 방식
+## 6. 리프에 도착한 뒤 실제 key를 찾는 방식
 
-leaf에 도착하면 `bptree_search()`가 다시 이 코드를 사용합니다.
-
-```c
-idx = lower_bound_keys(leaf->keys, leaf->num_keys, key);
-if (idx < leaf->num_keys && leaf->keys[idx] == key) {
-    return leaf->ptrs[idx];
-}
-```
-
-여기서 `lower_bound_keys()`는:
+리프에 도달하면 현재 구현은 이렇게 확인합니다.
 
 ```c
-static int lower_bound_keys(const int *keys, int count, int key) {
-    int lo = 0;
-    int hi = count;
-
-    while (lo < hi) {
-        int mid = lo + (hi - lo) / 2;
-        if (keys[mid] < key) {
-            lo = mid + 1;
-        } else {
-            hi = mid;
-        }
+for (i = 0; i < leaf->num_keys; ++i) {
+    g_op_count++;
+    if (leaf->keys[i] == key) {
+        return leaf->ptrs[i];
     }
-
-    return lo;
+    if (leaf->keys[i] > key) {
+        return NULL;
+    }
 }
 ```
 
-이 함수는  
-**`key 이상이 처음 나오는 위치`** 를 찾습니다.
+이 로직은 다음 뜻입니다.
 
-예를 들어 leaf 안에:
+1. 리프 안의 key를 앞에서부터 확인한다.
+2. 같은 key를 찾으면 바로 대응하는 포인터를 반환한다.
+3. 현재 key가 찾는 값보다 커지는 순간, 뒤에는 더 볼 필요가 없으므로 `NULL`을 반환한다.
 
-```text
-[41, 52, 67, 80]
-```
+즉 리프 내부는 현재 코드 기준으로  
+**정렬된 배열을 앞에서부터 확인하는 방식**입니다.
 
-가 있고 `key = 67`이면:
-- `lower_bound_keys()`는 index 2를 반환
-- `leaf->keys[2] == 67` 확인
-- 맞으면 `leaf->ptrs[2]` 반환
+완전 무식하게 끝까지 보는 것은 아니고,
+
+- `== key` 이면 성공
+- `> key` 이면 조기 종료
+
+가 들어가 있습니다.
 
 ---
 
-## 8. 반환되는 값은 무엇인가
+## 7. `g_op_count`는 왜 중요한가
 
-최종 반환은 이 줄입니다.
-
-```c
-return leaf->ptrs[idx];
-```
-
-즉 B+ 트리는 key를 찾았다고 끝나는 게 아니라,  
-그 key에 연결된 **실제 레코드 포인터**를 반환합니다.
-
-현재 프로젝트에서는 이 포인터가 보통 `Player*`입니다.
+현재 구현은 단순히 찾기만 하는 코드가 아니라  
+**비교 횟수도 측정하는 코드**입니다.
 
 예를 들어:
 
-```c
-bptree_insert(bptree, players[i].id, &players[i]);
-```
+- 내부 노드에서 어떤 자식으로 내려갈지 판단할 때 비교
+- 리프에서 실제 key를 확인할 때 비교
+- 범위 탐색에서 각 key를 검사할 때 비교
 
-이렇게 넣었기 때문에,
+이 비교들을 모두 `g_op_count++`로 셉니다.
 
-```c
-Player *found = (Player *)bptree_search(tree, 500000);
-```
-
-를 하면 `id == 500000`인 Player 구조체 주소를 받게 됩니다.
+즉 지금 프로젝트에서는 시간뿐 아니라  
+**탐색 과정에서 몇 번 비교했는가**도 같이 보여주기 위해
+탐색 함수가 약간 계측된 상태입니다.
 
 ---
 
-## 9. 탐색 흐름을 그림처럼 보면
+## 8. 최종적으로 반환하는 값은 무엇인가
 
-예를 들어 `id = 500000`을 찾는다고 하면:
+이 줄이 가장 중요합니다.
+
+```c
+return leaf->ptrs[i];
+```
+
+즉 B+ 트리는 key를 찾고 끝나는 것이 아니라  
+그 key에 연결된 **실제 레코드 주소**를 돌려줍니다.
+
+현재 프로젝트에서는 보통 이런 형태로 들어갑니다.
+
+```c
+bptree_insert(tree, players[i].id, &players[i]);
+```
+
+즉:
+- key: `players[i].id`
+- value: `&players[i]`
+
+따라서 검색 결과는 보통 `Player *`로 해석됩니다.
+
+---
+
+## 9. 현재 코드 기준 탐색 흐름 한 번에 보기
+
+예를 들어 `id = 500000`을 찾는다고 하면 흐름은 이렇습니다.
 
 1. `bptree_search(tree, 500000)` 호출
-2. `find_leaf_node(root, 500000)` 호출
-3. 루트에서 `500000`이 어느 구간인지 계산
-4. 해당 자식으로 이동
-5. 내부 노드가 더 있으면 같은 과정을 반복
-6. 리프 노드 도착
-7. leaf 안에서 `lower_bound_keys()`로 최종 위치 계산
-8. key가 정확히 일치하면 `leaf->ptrs[idx]` 반환
-9. 없으면 `NULL`
+2. `find_leaf_node(tree->root, 500000)` 호출
+3. 루트에서 시작
+4. 내부 노드의 `keys[]`를 앞에서부터 비교
+5. 해당 key가 들어 있을 구간의 자식으로 이동
+6. 리프 노드가 나올 때까지 반복
+7. 리프에 도착하면 `leaf->keys[]`를 앞에서부터 확인
+8. `== 500000` 이면 `leaf->ptrs[i]` 반환
+9. `> 500000` 이 먼저 나오면 `NULL` 반환
 
-즉 한 줄로 쓰면:
+즉 현재 코드 흐름은 한 줄로 요약하면:
 
-`내부 노드에서는 구간 선택, 리프 노드에서는 실제 key 확인`
+`내부 노드에서 구간을 정해 leaf까지 내려가고, leaf에서 실제 key를 확인한 뒤 record pointer를 반환한다`
 
 입니다.
 
 ---
 
-## 10. B+ 트리가 빠른 이유를 이 코드 기준으로 보면
+## 10. 범위 탐색은 왜 B+ 트리가 유리한가
 
-이 코드에서 B+ 트리가 빠른 이유는 크게 두 가지입니다.
-
-### 1. 내부 노드에서 범위를 빠르게 줄인다
-
-```c
-int idx = upper_bound_keys(current->keys, current->num_keys, key);
-current = current->children[idx];
-```
-
-이 과정을 반복하면서  
-전체 데이터를 다 보지 않고  
-해당 key가 있을 만한 구간으로 바로 내려갑니다.
-
-### 2. 리프에서 정렬된 key 배열을 다시 이진 탐색한다
-
-```c
-idx = lower_bound_keys(leaf->keys, leaf->num_keys, key);
-```
-
-즉 leaf 안에서도 무식하게 처음부터 끝까지 찾지 않고,  
-정렬된 구조를 이용해 빠르게 위치를 찾습니다.
-
----
-
-## 11. 범위 탐색은 왜 더 유리한가
-
-현재 구현의 범위 탐색 함수:
+현재 범위 탐색 함수는 이렇게 시작합니다.
 
 ```c
 int bptree_range(BPTree *tree, int lo, int hi) {
@@ -362,6 +294,7 @@ int bptree_range(BPTree *tree, int lo, int hi) {
         int i;
 
         for (i = 0; i < leaf->num_keys; ++i) {
+            g_op_count++;
             if (leaf->keys[i] < lo) {
                 continue;
             }
@@ -378,36 +311,38 @@ int bptree_range(BPTree *tree, int lo, int hi) {
 }
 ```
 
-핵심:
-- 먼저 `lo`가 있는 leaf까지 한 번 내려감
-- 이후에는 `leaf->next`를 따라가며 범위를 순회
+핵심은:
 
-즉 B+ 트리의 리프 연결 구조 덕분에  
-범위 탐색이 매우 자연스럽습니다.
+1. 먼저 `lo`가 있을 만한 leaf까지 한 번 내려간다.
+2. 그 다음부터는 `leaf->next`를 따라가며 순차적으로 본다.
 
-이게 B 트리보다 B+ 트리가 범위 탐색에 강하다고 설명하는 핵심 이유입니다.
+이 구조 때문에 B+ 트리는 범위 탐색에서 강합니다.
+
+내부 노드로 다시 돌아갈 필요 없이  
+**연결된 리프만 따라가면 되기 때문**입니다.
 
 ---
 
-## 12. 코드 읽을 때 집중해서 볼 함수들
+## 11. 현재 코드에서 읽어야 할 핵심 함수 순서
 
-현재 구현에서 B+ 트리 탐색 흐름을 이해하려면 이 함수들만 보면 됩니다.
+현재 폴더 기준으로 B+ 트리 탐색 흐름을 따라가려면
+아래 순서로 보면 가장 좋습니다.
 
 1. `bptree_search()`
 2. `find_leaf_node()`
-3. `upper_bound_keys()`
-4. `lower_bound_keys()`
-5. `bptree_range()`
+3. `bptree_range()`
+4. `bptree_insert()`
+5. `insert_recursive()`
 
-즉 순서는:
+탐색만 이해하려면 우선
 
-`bptree_search -> find_leaf_node -> upper_bound_keys -> lower_bound_keys`
+`bptree_search -> find_leaf_node -> leaf 내부 비교`
 
-입니다.
+이 3단계만 보면 됩니다.
 
 ---
 
-## 13. 한 문장 정리
+## 12. 한 문장 정리
 
 현재 프로젝트의 B+ 트리 탐색은  
-**루트에서 시작해 내부 노드의 key 배열로 적절한 자식을 계속 선택해 leaf까지 내려간 뒤, leaf 안에서 key를 최종 확인하고 해당 record pointer를 반환하는 방식**입니다.
+**루트에서 시작해 내부 노드의 key들을 비교하며 해당 리프까지 내려간 뒤, 리프에서 실제 key를 확인하고 연결된 레코드 포인터를 반환하는 방식**입니다.

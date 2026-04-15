@@ -2,11 +2,11 @@ const rankingBody = document.getElementById("ranking-body");
 const runButton = document.getElementById("run-search");
 const datasetSize = document.getElementById("dataset-size");
 const modeTabs = [...document.querySelectorAll(".mode-tab")];
-const idInputWrap    = document.getElementById("id-input-wrap");
-const targetIdInput  = document.getElementById("target-id");
+const idInputWrap = document.getElementById("id-input-wrap");
+const targetIdInput = document.getElementById("target-id");
 const rangeInputWrap = document.getElementById("range-input-wrap");
-const rangeLoInput   = document.getElementById("range-lo");
-const rangeHiInput   = document.getElementById("range-hi");
+const rangeLoInput = document.getElementById("range-lo");
+const rangeHiInput = document.getElementById("range-hi");
 const paginationEls = {
   wrap: document.getElementById("table-pagination"),
   prev: document.getElementById("page-prev"),
@@ -90,8 +90,8 @@ function updateSummary(count) {
 }
 
 function updateIdInputVisibility() {
-  idInputWrap.style.display    = currentMode === "single" ? "block" : "none";
-  rangeInputWrap.style.display = currentMode === "range"  ? "flex"  : "none";
+  idInputWrap.style.display = currentMode === "single" ? "block" : "none";
+  rangeInputWrap.style.display = currentMode === "range" ? "flex" : "none";
 }
 
 function getSingleSearchTarget() {
@@ -296,25 +296,24 @@ function renderRange(benchmark) {
   hidePagination();
 }
 
-// 실시간 범위 탐색 결과 렌더링 (/api/range 응답 전용)
 function renderRangeRealtime(data) {
-  resultEls.linearTime.textContent  = formatTimeUs(data.linear_time);
-  resultEls.btreeTime.textContent   = formatTimeUs(data.btree_time);
-  resultEls.bptreeTime.textContent  = formatTimeUs(data.bptree_time);
+  resultEls.linearTime.textContent = formatTimeUs(data.linear_time);
+  resultEls.btreeTime.textContent = formatTimeUs(data.btree_time);
+  resultEls.bptreeTime.textContent = formatTimeUs(data.bptree_time);
 
-  resultEls.linearOps.textContent  = formatOps(data.linear_ops);
-  resultEls.btreeOps.textContent   = formatOps(data.btree_ops);
-  resultEls.bptreeOps.textContent  = formatOps(data.bptree_ops);
+  resultEls.linearOps.textContent = formatOps(data.linear_ops);
+  resultEls.btreeOps.textContent = formatOps(data.btree_ops);
+  resultEls.bptreeOps.textContent = formatOps(data.bptree_ops);
 
   const lo = formatNumber(data.lo);
   const hi = formatNumber(data.hi);
-  resultEls.linearCaption.textContent  = `ID #${lo}~${hi} 범위를 선형 탐색으로 전체 확인`;
-  resultEls.btreeCaption.textContent   = `ID #${lo}~${hi} 범위를 B 트리로 분기 탐색`;
-  resultEls.bptreeCaption.textContent  = `ID #${lo}~${hi} 범위를 연결된 리프로 순회`;
+  resultEls.linearCaption.textContent = `ID #${lo}~${hi} 범위를 선형 탐색으로 전체 확인`;
+  resultEls.btreeCaption.textContent = `ID #${lo}~${hi} 범위를 B 트리로 분기 탐색`;
+  resultEls.bptreeCaption.textContent = `ID #${lo}~${hi} 범위를 연결된 리프로 순회`;
 
   setProgressBars({
     linear: data.linear_time,
-    btree:  data.btree_time,
+    btree: data.btree_time,
     bptree: data.bptree_time,
   });
 
@@ -346,7 +345,7 @@ function renderRangeRealtime(data) {
   });
 }
 
-function renderSingle(payload, benchmark) {
+function renderSingle(payload) {
   const isNameSearch = payload.search_type === "name";
   const targetId = payload.target_id;
   const targetName = payload.target_name;
@@ -387,10 +386,12 @@ function renderSingle(payload, benchmark) {
 
   if (payload.player) {
     summaryEls.tableSubtitle.textContent = "검색 결과 1건";
-    renderRows([{
-      ...payload.player,
-      width: 120,
-    }]);
+    renderRows([
+      {
+        ...payload.player,
+        width: 120,
+      },
+    ]);
   } else {
     summaryEls.tableSubtitle.textContent = "검색 결과 없음";
     rankingBody.innerHTML = `
@@ -440,7 +441,9 @@ async function loadRangePage(page, benchmark = null) {
   setPaginationLoading();
 
   const rangePayload = await fetchJson(
-    buildUrl(`api/range?lo=${currentRangeState.lo}&hi=${currentRangeState.hi}&count=${currentRangeState.count}&page=${page}&page_size=${currentRangeState.pageSize}`),
+    buildUrl(
+      `api/range?lo=${currentRangeState.lo}&hi=${currentRangeState.hi}&count=${currentRangeState.count}&page=${page}&page_size=${currentRangeState.pageSize}`
+    ),
     "범위 탐색 실패"
   );
 
