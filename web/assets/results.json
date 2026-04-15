@@ -1,22 +1,22 @@
 {
   "meta": {
-    "generated_at": "2026-04-15 19:31:22",
-    "dataset_size": 1000000,
+    "generated_at": "2026-04-15 11:06:42",
+    "dataset_size": 100000,
     "iterations": 5
   },
   "single_search": {
-    "target_id": 500000,
-    "linear": {"avg_us": 322.000, "ops": 500000},
-    "btree": {"avg_us": 1.800, "ops": 37},
-    "bptree": {"avg_us": 0.600, "ops": 37}
+    "target_id": 50000,
+    "linear": {"avg_us": 109.010, "ops": 50000},
+    "btree": {"avg_us": 0.260, "ops": 55},
+    "bptree": {"avg_us": 0.180, "ops": 55}
   },
   "range_search": {
-    "lo": 500000,
-    "hi": 500999,
+    "lo": 50000,
+    "hi": 50999,
     "count": 1000,
-    "linear": {"avg_us": 656.200, "ops": 1000000},
-    "btree": {"avg_us": 1.600, "ops": 1115},
-    "bptree": {"avg_us": 2.800, "ops": 1037}
+    "linear": {"avg_us": 221.301, "ops": 100000},
+    "btree": {"avg_us": 2.140, "ops": 1134},
+    "bptree": {"avg_us": 1.100, "ops": 1055}
   },
   "top_players": [
     {"id": 3164, "nickname": "StarlightX_3163", "win_rate": 98.99, "rank": "챌린저"},
