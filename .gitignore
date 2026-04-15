@@ -6,3 +6,9 @@ data/*.csv
 assets/results/
 .DS_Store
 # Local-only agent handoff/work logs
+.venv/
+players.csv
+players.csv.bak
+collect_checkpoint.txt
+collect_checkpoint.txt.bak
+src.zip
