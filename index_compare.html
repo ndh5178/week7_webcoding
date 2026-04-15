@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>인덱스 구조 비교</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', 'Apple SD Gothic Neo', sans-serif;
+    background: #0f1117;
+    color: #e2e8f0;
+    padding: 32px 24px;
+    min-height: 100vh;
+  }
+  h1 {
+    text-align: center;
+    font-size: 22px;
+    font-weight: 700;
+    color: #f8fafc;
+    margin-bottom: 8px;
+    letter-spacing: -0.3px;
+  }
+  .subtitle {
+    text-align: center;
+    font-size: 13px;
+    color: #64748b;
+    margin-bottom: 36px;
+  }
+
+  .compare-wrap {
+    display: flex;
+    gap: 28px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  .panel {
+    flex: 1;
+    background: #1e2130;
+    border-radius: 14px;
+    padding: 24px 20px 28px;
+    border: 1px solid #2d3350;
+  }
+  .panel-title {
+    text-align: center;
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .panel-title.current { color: #60a5fa; }
+  .panel-title.extended { color: #a78bfa; }
+  .panel-sub {
+    text-align: center;
+    font-size: 11px;
+    color: #475569;
+    margin-bottom: 22px;
+  }
+
+  /* ── 테이블 ── */
+  .table-box {
+    background: #161b2e;
+    border: 1px solid #2d3a5e;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 10px;
+  }
+  .table-header {
+    background: #1e3a5f;
+    display: grid;
+    font-size: 11px;
+    font-weight: 700;
+    color: #93c5fd;
+    padding: 8px 12px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .cols-4 { grid-template-columns: 60px 1fr 70px 80px; gap: 8px; }
+  .table-row {
+    display: grid;
+    font-size: 11.5px;
+    padding: 6px 12px;
+    border-top: 1px solid #1e2a45;
+    transition: background .15s;
+  }
+  .table-row:hover { background: #1a2540; }
+  .table-row .id-col { color: #fbbf24; font-weight: 700; }
+  .table-row .name-col { color: #e2e8f0; }
+  .table-row .wr-col { color: #34d399; }
+  .table-row .rank-col { color: #a78bfa; font-size: 11px; }
+  .table-label {
+    font-size: 11px;
+    color: #475569;
+    text-align: center;
+    margin-bottom: 16px;
+    margin-top: 4px;
+  }
+
+  /* ── 화살표 ── */
+  .arrow {
+    text-align: center;
+    font-size: 20px;
+    color: #475569;
+    margin: 4px 0 6px;
+    line-height: 1;
+  }
+  .arrow-label {
+    text-align: center;
+    font-size: 10.5px;
+    color: #475569;
+    margin-bottom: 10px;
+  }
+
+  /* ── 인덱스 트리 ── */
+  .tree-section {
+    margin-bottom: 16px;
+  }
+  .tree-title {
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 5px 10px;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    display: inline-block;
+  }
+  .tree-title.id-index { background: #1e3a5f; color: #60a5fa; }
+  .tree-title.name-index { background: #2d1f5e; color: #c4b5fd; }
+
+  .tree-wrap { width: 100%; }
+  svg.tree-svg { width: 100%; display: block; }
+
+  /* ── 검색 예시 ── */
+  .search-box {
+    background: #161b2e;
+    border: 1px solid #2d3a5e;
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-top: 18px;
+  }
+  .search-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 10px;
+  }
+  .search-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 8px;
+    font-size: 11.5px;
+    line-height: 1.5;
+  }
+  .search-item:last-child { margin-bottom: 0; }
+  .badge {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 4px;
+    white-space: nowrap;
+    margin-top: 1px;
+    flex-shrink: 0;
+  }
+  .badge-fast { background: #064e3b; color: #34d399; }
+  .badge-slow { background: #450a0a; color: #f87171; }
+  .badge-new  { background: #2e1065; color: #c4b5fd; }
+  .search-sql { font-family: monospace; font-size: 11px; color: #7dd3fc; }
+  .search-desc { color: #64748b; font-size: 11px; }
+
+  /* ── 트레이드오프 ── */
+  .tradeoff {
+    margin-top: 18px;
+    background: #161b2e;
+    border: 1px solid #2d3a5e;
+    border-radius: 10px;
+    padding: 12px 16px;
+  }
+  .tradeoff-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+  }
+  .tradeoff-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 6px;
+    font-size: 11.5px;
+    align-items: flex-start;
+  }
+  .tradeoff-row:last-child { margin-bottom: 0; }
+  .dot-green::before { content: '✓'; color: #34d399; font-weight: 700; }
+  .dot-red::before   { content: '✗'; color: #f87171; font-weight: 700; }
+  .tradeoff-row span { color: #94a3b8; }
+
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 8px 0 16px;
+  }
+  .divider-line { flex: 1; height: 1px; background: #2d3350; }
+  .divider-text { font-size: 10.5px; color: #475569; white-space: nowrap; }
+
+  @media (max-width: 700px) {
+    .compare-wrap { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<h1>인덱스 구조 비교</h1>
+<p class="subtitle">현재 구현 (id 인덱스만) vs name 인덱스 추가 시</p>
+
+<div class="compare-wrap">
+
+  <!-- ────────────── 왼쪽: 현재 구조 ────────────── -->
+  <div class="panel">
+    <div class="panel-title current">① 현재 구조</div>
+    <div class="panel-sub">id 컬럼에만 B+ 트리 인덱스</div>
+
+    <!-- 테이블 -->
+    <div class="table-box">
+      <div class="table-header cols-4">
+        <span>id ★</span><span>name</span><span>winrate</span><span>rank</span>
+      </div>
+      <div class="table-row cols-4">
+        <span class="id-col">1</span><span class="name-col">Hide on bush</span><span class="wr-col">72%</span><span class="rank-col">CHALLENGER</span>
+      </div>
+      <div class="table-row cols-4">
+        <span class="id-col">2</span><span class="name-col">T1 Faker</span><span class="wr-col">68%</span><span class="rank-col">CHALLENGER</span>
+      </div>
+      <div class="table-row cols-4">
+        <span class="id-col">3</span><span class="name-col">BlueSteel</span><span class="wr-col">54%</span><span class="rank-col">DIAMOND_I</span>
+      </div>
+      <div class="table-row cols-4">
+        <span class="id-col">…</span><span class="name-col">…</span><span class="wr-col">…</span><span class="rank-col">…</span>
+      </div>
+    </div>
+    <div class="table-label">Player 테이블 (100만 건)</div>
+
+    <div class="arrow">↓</div>
+    <div class="arrow-label">id 컬럼으로 B+ 트리 생성</div>
+
+    <!-- id 인덱스 트리 -->
+    <div class="tree-section">
+      <div class="tree-title id-index">🔑 id 인덱스 (B+ Tree)</div>
+      <div class="tree-wrap">
+        <svg class="tree-svg" viewBox="0 0 340 170" xmlns="http://www.w3.org/2000/svg">
+          <!-- 루트 -->
+          <rect x="105" y="10" width="130" height="32" rx="7" fill="#1e3a5f" stroke="#3b82f6" stroke-width="1.5"/>
+          <text x="170" y="30" text-anchor="middle" fill="#93c5fd" font-size="12" font-family="monospace">250000 | 500000</text>
+
+          <!-- 내부 노드 -->
+          <rect x="20" y="68" width="90" height="28" rx="6" fill="#162640" stroke="#2563eb" stroke-width="1"/>
+          <text x="65" y="86" text-anchor="middle" fill="#7db8f5" font-size="11" font-family="monospace">125000</text>
+
+          <rect x="125" y="68" width="90" height="28" rx="6" fill="#162640" stroke="#2563eb" stroke-width="1"/>
+          <text x="170" y="86" text-anchor="middle" fill="#7db8f5" font-size="11" font-family="monospace">375000</text>
+
+          <rect x="230" y="68" width="90" height="28" rx="6" fill="#162640" stroke="#2563eb" stroke-width="1"/>
+          <text x="275" y="86" text-anchor="middle" fill="#7db8f5" font-size="11" font-family="monospace">625000</text>
+
+          <!-- 선 루트→내부 -->
+          <line x1="140" y1="42" x2="75" y2="68" stroke="#2d5fa8" stroke-width="1"/>
+          <line x1="170" y1="42" x2="170" y2="68" stroke="#2d5fa8" stroke-width="1"/>
+          <line x1="200" y1="42" x2="265" y2="68" stroke="#2d5fa8" stroke-width="1"/>
+
+          <!-- 리프 노드 (연결 리스트) -->
+          <rect x="5"   y="128" width="70" height="28" rx="5" fill="#0f1f38" stroke="#1d4ed8" stroke-width="1"/>
+          <text x="40"  y="146" text-anchor="middle" fill="#60a5fa" font-size="10.5" font-family="monospace">1…125K</text>
+
+          <rect x="90"  y="128" width="70" height="28" rx="5" fill="#0f1f38" stroke="#1d4ed8" stroke-width="1"/>
+          <text x="125" y="146" text-anchor="middle" fill="#60a5fa" font-size="10.5" font-family="monospace">125K…250K</text>
+
+          <rect x="175" y="128" width="70" height="28" rx="5" fill="#0f1f38" stroke="#1d4ed8" stroke-width="1"/>
+          <text x="210" y="146" text-anchor="middle" fill="#60a5fa" font-size="10.5" font-family="monospace">250K…500K</text>
+
+          <rect x="260" y="128" width="70" height="28" rx="5" fill="#0f1f38" stroke="#1d4ed8" stroke-width="1"/>
+          <text x="295" y="146" text-anchor="middle" fill="#60a5fa" font-size="10.5" font-family="monospace">500K…1M</text>
+
+          <!-- 리프 연결 화살표 -->
+          <line x1="75"  y1="142" x2="90"  y2="142" stroke="#1d4ed8" stroke-width="1.2" marker-end="url(#arr)"/>
+          <line x1="160" y1="142" x2="175" y2="142" stroke="#1d4ed8" stroke-width="1.2" marker-end="url(#arr)"/>
+          <line x1="245" y1="142" x2="260" y2="142" stroke="#1d4ed8" stroke-width="1.2" marker-end="url(#arr)"/>
+
+          <!-- 내부→리프 선 -->
+          <line x1="45"  y1="96" x2="35"  y2="128" stroke="#1e3a6e" stroke-width="1"/>
+          <line x1="85"  y1="96" x2="110" y2="128" stroke="#1e3a6e" stroke-width="1"/>
+          <line x1="155" y1="96" x2="195" y2="128" stroke="#1e3a6e" stroke-width="1"/>
+          <line x1="280" y1="96" x2="280" y2="128" stroke="#1e3a6e" stroke-width="1"/>
+
+          <defs>
+            <marker id="arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L6,3 z" fill="#1d4ed8"/>
+            </marker>
+          </defs>
+        </svg>
+      </div>
+    </div>
+
+    <!-- 검색 예시 -->
+    <div class="search-box">
+      <div class="search-title">검색 동작</div>
+      <div class="search-item">
+        <span class="badge badge-fast">빠름</span>
+        <div>
+          <div class="search-sql">WHERE id = 500000</div>
+          <div class="search-desc">B+ 트리 탐색 → O(log n)</div>
+        </div>
+      </div>
+      <div class="search-item">
+        <span class="badge badge-slow">느림</span>
+        <div>
+          <div class="search-sql">WHERE name = 'T1 Faker'</div>
+          <div class="search-desc">선형 탐색 → O(n), 100만 건 전부 순회</div>
+        </div>
+      </div>
+      <div class="search-item">
+        <span class="badge badge-slow">느림</span>
+        <div>
+          <div class="search-sql">WHERE id BETWEEN 100 AND 200</div>
+          <div class="search-desc">리프 연결 리스트 → O(log n + k)</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tradeoff">
+      <div class="tradeoff-title">특징</div>
+      <div class="tradeoff-row dot-green"><span>id 검색 O(log n)으로 빠름</span></div>
+      <div class="tradeoff-row dot-green"><span>메모리 사용 최소화</span></div>
+      <div class="tradeoff-row dot-green"><span>삽입 시 인덱스 1개만 갱신</span></div>
+      <div class="tradeoff-row dot-red"><span>name 검색은 여전히 O(n)</span></div>
+    </div>
+  </div>
+
+
+  <!-- ────────────── 오른쪽: name 인덱스 추가 ────────────── -->
+  <div class="panel">
+    <div class="panel-title extended">② name 인덱스 추가 시</div>
+    <div class="panel-sub">id + name 두 개의 B+ 트리 인덱스</div>
+
+    <!-- 테이블 -->
+    <div class="table-box">
+      <div class="table-header cols-4">
+        <span>id ★</span><span>name ★</span><span>winrate</span><span>rank</span>
+      </div>
+      <div class="table-row cols-4">
+        <span class="id-col">1</span><span class="name-col">Hide on bush</span><span class="wr-col">72%</span><span class="rank-col">CHALLENGER</span>
+      </div>
+      <div class="table-row cols-4">
+        <span class="id-col">2</span><span class="name-col">T1 Faker</span><span class="wr-col">68%</span><span class="rank-col">CHALLENGER</span>
+      </div>
+      <div class="table-row cols-4">
+        <span class="id-col">3</span><span class="name-col">BlueSteel</span><span class="wr-col">54%</span><span class="rank-col">DIAMOND_I</span>
+      </div>
+      <div class="table-row cols-4">
+        <span class="id-col">…</span><span class="name-col">…</span><span class="wr-col">…</span><span class="rank-col">…</span>
+      </div>
+    </div>
+    <div class="table-label">Player 테이블 (100만 건) — 인덱스 컬럼 2개</div>
+
+    <div class="arrow">↓</div>
+    <div class="arrow-label">id, name 각각 별도 B+ 트리 생성</div>
+
+    <!-- id 인덱스 -->
+    <div class="tree-section">
+      <div class="tree-title id-index">🔑 id 인덱스 (B+ Tree #1)</div>
+      <div class="tree-wrap">
+        <svg class="tree-svg" viewBox="0 0 340 90" xmlns="http://www.w3.org/2000/svg">
+          <rect x="110" y="8" width="120" height="28" rx="7" fill="#1e3a5f" stroke="#3b82f6" stroke-width="1.5"/>
+          <text x="170" y="26" text-anchor="middle" fill="#93c5fd" font-size="11" font-family="monospace">250000 | 500000</text>
+          <line x1="145" y1="36" x2="60" y2="58" stroke="#2d5fa8" stroke-width="1"/>
+          <line x1="170" y1="36" x2="170" y2="58" stroke="#2d5fa8" stroke-width="1"/>
+          <line x1="195" y1="36" x2="280" y2="58" stroke="#2d5fa8" stroke-width="1"/>
+          <rect x="10"  y="58" width="90" height="24" rx="5" fill="#0f1f38" stroke="#1d4ed8" stroke-width="1"/>
+          <text x="55"  y="74" text-anchor="middle" fill="#60a5fa" font-size="10" font-family="monospace">1 … 250K</text>
+          <rect x="125" y="58" width="90" height="24" rx="5" fill="#0f1f38" stroke="#1d4ed8" stroke-width="1"/>
+          <text x="170" y="74" text-anchor="middle" fill="#60a5fa" font-size="10" font-family="monospace">250K … 500K</text>
+          <rect x="240" y="58" width="90" height="24" rx="5" fill="#0f1f38" stroke="#1d4ed8" stroke-width="1"/>
+          <text x="285" y="74" text-anchor="middle" fill="#60a5fa" font-size="10" font-family="monospace">500K … 1M</text>
+          <line x1="100" y1="70" x2="125" y2="70" stroke="#1d4ed8" stroke-width="1" marker-end="url(#arr2)"/>
+          <line x1="215" y1="70" x2="240" y2="70" stroke="#1d4ed8" stroke-width="1" marker-end="url(#arr2)"/>
+          <defs>
+            <marker id="arr2" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L6,3 z" fill="#1d4ed8"/>
+            </marker>
+          </defs>
+        </svg>
+      </div>
+    </div>
+
+    <div class="divider">
+      <div class="divider-line"></div>
+      <div class="divider-text">추가된 인덱스</div>
+      <div class="divider-line"></div>
+    </div>
+
+    <!-- name 인덱스 -->
+    <div class="tree-section">
+      <div class="tree-title name-index">🔤 name 인덱스 (B+ Tree #2) — 문자열 정렬</div>
+      <div class="tree-wrap">
+        <svg class="tree-svg" viewBox="0 0 340 90" xmlns="http://www.w3.org/2000/svg">
+          <rect x="105" y="8" width="130" height="28" rx="7" fill="#2d1f5e" stroke="#7c3aed" stroke-width="1.5"/>
+          <text x="170" y="26" text-anchor="middle" fill="#c4b5fd" font-size="11" font-family="monospace">"L…" | "S…"</text>
+          <line x1="145" y1="36" x2="60"  y2="58" stroke="#5b21b6" stroke-width="1"/>
+          <line x1="170" y1="36" x2="170" y2="58" stroke="#5b21b6" stroke-width="1"/>
+          <line x1="195" y1="36" x2="280" y2="58" stroke="#5b21b6" stroke-width="1"/>
+          <rect x="10"  y="58" width="90" height="24" rx="5" fill="#1a0a38" stroke="#6d28d9" stroke-width="1"/>
+          <text x="55"  y="74" text-anchor="middle" fill="#a78bfa" font-size="10" font-family="monospace">A… ~ K…</text>
+          <rect x="125" y="58" width="90" height="24" rx="5" fill="#1a0a38" stroke="#6d28d9" stroke-width="1"/>
+          <text x="170" y="74" text-anchor="middle" fill="#a78bfa" font-size="10" font-family="monospace">L… ~ R…</text>
+          <rect x="240" y="58" width="90" height="24" rx="5" fill="#1a0a38" stroke="#6d28d9" stroke-width="1"/>
+          <text x="285" y="74" text-anchor="middle" fill="#a78bfa" font-size="10" font-family="monospace">S… ~ Z…</text>
+          <line x1="100" y1="70" x2="125" y2="70" stroke="#6d28d9" stroke-width="1" marker-end="url(#arr3)"/>
+          <line x1="215" y1="70" x2="240" y2="70" stroke="#6d28d9" stroke-width="1" marker-end="url(#arr3)"/>
+          <defs>
+            <marker id="arr3" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L6,3 z" fill="#6d28d9"/>
+            </marker>
+          </defs>
+        </svg>
+      </div>
+    </div>
+
+    <!-- 검색 예시 -->
+    <div class="search-box">
+      <div class="search-title">검색 동작</div>
+      <div class="search-item">
+        <span class="badge badge-fast">빠름</span>
+        <div>
+          <div class="search-sql">WHERE id = 500000</div>
+          <div class="search-desc">id 인덱스 → O(log n)</div>
+        </div>
+      </div>
+      <div class="search-item">
+        <span class="badge badge-new">추가</span>
+        <div>
+          <div class="search-sql">WHERE name = 'T1 Faker'</div>
+          <div class="search-desc">name 인덱스 → O(log n), 이제 빠름</div>
+        </div>
+      </div>
+      <div class="search-item">
+        <span class="badge badge-slow">느림</span>
+        <div>
+          <div class="search-sql">WHERE winrate > 70</div>
+          <div class="search-desc">인덱스 없음 → 선형 탐색 O(n)</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tradeoff">
+      <div class="tradeoff-title">트레이드오프</div>
+      <div class="tradeoff-row dot-green"><span>id · name 검색 모두 O(log n)</span></div>
+      <div class="tradeoff-row dot-red"><span>메모리 2배 (트리 2개)</span></div>
+      <div class="tradeoff-row dot-red"><span>삽입 시 인덱스 2개 갱신 → 쓰기 느림</span></div>
+      <div class="tradeoff-row dot-red"><span>name은 문자열이라 비교 비용 ↑</span></div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

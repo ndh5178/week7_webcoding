@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>탐색 흐름 비교</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', 'Apple SD Gothic Neo', sans-serif;
+    background: #0f1117;
+    color: #e2e8f0;
+    padding: 32px 24px;
+    min-height: 100vh;
+  }
+  h1 {
+    text-align: center;
+    font-size: 21px;
+    font-weight: 700;
+    color: #f8fafc;
+    margin-bottom: 6px;
+  }
+  .subtitle {
+    text-align: center;
+    font-size: 13px;
+    color: #475569;
+    margin-bottom: 40px;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 1fr 220px 1fr;
+    grid-template-rows: auto auto auto auto auto;
+    gap: 0;
+    max-width: 980px;
+    margin: 0 auto;
+    align-items: start;
+  }
+
+  /* ── SQL 입력 박스 ── */
+  .sql-box {
+    background: #1a1f35;
+    border: 1.5px solid #334155;
+    border-radius: 10px;
+    padding: 14px 18px;
+    text-align: center;
+  }
+  .sql-label {
+    font-size: 10px;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 6px;
+  }
+  .sql-code {
+    font-family: monospace;
+    font-size: 13.5px;
+    font-weight: 700;
+  }
+  .sql-code.blue  { color: #60a5fa; }
+  .sql-code.green { color: #34d399; }
+
+  /* ── 중앙 테이블 영역 ── */
+  .center-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 0;
+  }
+
+  .table-label-top {
+    font-size: 11px;
+    font-weight: 700;
+    color: #94a3b8;
+    text-align: center;
+    margin-bottom: 8px;
+    letter-spacing: 0.3px;
+  }
+
+  .player-table {
+    width: 100%;
+    background: #161b2e;
+    border: 1.5px solid #2d3a5e;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .pt-header {
+    display: grid;
+    grid-template-columns: 44px 1fr 52px 72px;
+    background: #1e2d4a;
+    padding: 7px 10px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #93c5fd;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    gap: 4px;
+  }
+  .pt-row {
+    display: grid;
+    grid-template-columns: 44px 1fr 52px 72px;
+    padding: 5px 10px;
+    font-size: 10.5px;
+    border-top: 1px solid #1e2a45;
+    gap: 4px;
+  }
+  .pt-row .c-id   { color: #fbbf24; font-weight: 700; font-family: monospace; }
+  .pt-row .c-name { color: #e2e8f0; }
+  .pt-row .c-wr   { color: #34d399; }
+  .pt-row .c-rank { color: #a78bfa; font-size: 9.5px; }
+  .pt-row.hl-id   { background: #0c2340; }
+  .pt-row.hl-name { background: #1a0a2e; }
+
+  /* ── 화살표/연결선 ── */
+  .connector {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+  .arr-right {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    width: 100%;
+  }
+  .arr-line {
+    flex: 1;
+    height: 2px;
+  }
+  .arr-line.blue  { background: #3b82f6; }
+  .arr-line.red   { background: #ef4444; }
+  .arr-head {
+    width: 0; height: 0;
+    border-top: 6px solid transparent;
+    border-bottom: 6px solid transparent;
+  }
+  .arr-head.blue  { border-left: 9px solid #3b82f6; }
+  .arr-head.red   { border-left: 9px solid #ef4444; }
+
+  .arr-left {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    width: 100%;
+    flex-direction: row-reverse;
+  }
+  .arr-head-left {
+    width: 0; height: 0;
+    border-top: 6px solid transparent;
+    border-bottom: 6px solid transparent;
+  }
+  .arr-head-left.blue  { border-right: 9px solid #3b82f6; }
+  .arr-head-left.red   { border-right: 9px solid #ef4444; }
+
+  .arr-label {
+    position: absolute;
+    top: -16px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px;
+    white-space: nowrap;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+  .arr-label.blue  { color: #93c5fd; background: #0f2040; }
+  .arr-label.red   { color: #fca5a5; background: #2d0a0a; }
+
+  .arr-down {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    margin: 6px 0;
+  }
+  .arr-down-line {
+    width: 2px;
+    height: 28px;
+  }
+  .arr-down-line.blue { background: #3b82f6; }
+  .arr-down-line.red  { background: #ef4444; }
+  .arr-down-line.gray { background: #334155; }
+
+  .arr-down-head {
+    width: 0; height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+  }
+  .arr-down-head.blue { border-top: 9px solid #3b82f6; }
+  .arr-down-head.red  { border-top: 9px solid #ef4444; }
+  .arr-down-head.gray { border-top: 9px solid #334155; }
+
+  /* ── 처리 박스 ── */
+  .process-box {
+    border-radius: 10px;
+    padding: 12px 16px;
+    text-align: center;
+  }
+  .process-box.blue-box {
+    background: #0d2240;
+    border: 1.5px solid #2563eb;
+  }
+  .process-box.red-box {
+    background: #200a0a;
+    border: 1.5px solid #b91c1c;
+  }
+  .process-box .pb-title {
+    font-size: 11.5px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .blue-box .pb-title { color: #60a5fa; }
+  .red-box  .pb-title { color: #f87171; }
+  .process-box .pb-desc {
+    font-size: 10.5px;
+    color: #64748b;
+    line-height: 1.5;
+  }
+
+  /* ── B+ 트리 ── */
+  .tree-box {
+    background: #0f1f38;
+    border: 1.5px solid #2563eb;
+    border-radius: 10px;
+    padding: 10px 12px 12px;
+  }
+  .tree-box-title {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #93c5fd;
+    text-align: center;
+    margin-bottom: 8px;
+  }
+
+  /* ── 결과 박스 ── */
+  .result-box {
+    border-radius: 10px;
+    padding: 12px 16px;
+    text-align: center;
+  }
+  .result-box.ok {
+    background: #052e16;
+    border: 1.5px solid #16a34a;
+  }
+  .result-box.slow {
+    background: #2d1404;
+    border: 1.5px solid #c2410c;
+  }
+  .result-box .rb-icon { font-size: 20px; margin-bottom: 4px; }
+  .result-box .rb-title {
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .ok   .rb-title { color: #4ade80; }
+  .slow .rb-title { color: #fb923c; }
+  .result-box .rb-time {
+    font-size: 18px;
+    font-weight: 800;
+    margin-bottom: 2px;
+  }
+  .ok   .rb-time { color: #4ade80; }
+  .slow .rb-time { color: #fb923c; }
+  .result-box .rb-sub {
+    font-size: 10.5px;
+    color: #64748b;
+  }
+
+  /* ── 선형 탐색 시각화 ── */
+  .linear-viz {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin-top: 6px;
+  }
+  .lv-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+  }
+  .lv-bar {
+    height: 12px;
+    border-radius: 3px;
+    background: #1e1033;
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+  .lv-fill {
+    position: absolute;
+    top: 0; left: 0;
+    height: 100%;
+    background: #7c3aed;
+    border-radius: 3px;
+  }
+  .lv-fill.scanning {
+    animation: scan 2s ease-in-out infinite;
+  }
+  @keyframes scan {
+    0%   { width: 0%; }
+    80%  { width: 100%; }
+    100% { width: 100%; }
+  }
+  .lv-label { color: #475569; white-space: nowrap; }
+
+  /* ── B+ 트리 탐색 시각화 ── */
+  .bptree-viz { width: 100%; }
+
+  /* ── 행 간격 ── */
+  .row-spacer { height: 18px; }
+  .connector-row {
+    display: contents;
+  }
+
+  /* 비교 요약 */
+  .summary {
+    max-width: 980px;
+    margin: 28px auto 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .sum-box {
+    border-radius: 10px;
+    padding: 16px 20px;
+  }
+  .sum-box.blue-sum { background: #0d2240; border: 1px solid #2563eb; }
+  .sum-box.red-sum  { background: #200a0a; border: 1px solid #b91c1c; }
+  .sum-title {
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 10px;
+  }
+  .blue-sum .sum-title { color: #60a5fa; }
+  .red-sum  .sum-title { color: #f87171; }
+  .sum-row {
+    display: flex;
+    gap: 8px;
+    font-size: 11.5px;
+    margin-bottom: 6px;
+    align-items: flex-start;
+    color: #94a3b8;
+  }
+  .sum-row:last-child { margin-bottom: 0; }
+  .sum-step {
+    background: #1e3a5f;
+    color: #93c5fd;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 4px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .sum-step.red-step { background: #3b0a0a; color: #fca5a5; }
+</style>
+</head>
+<body>
+
+<h1>id 인덱스 탐색 vs name 선형 탐색</h1>
+<p class="subtitle">같은 테이블, 다른 경로 — 인덱스 유무에 따른 탐색 흐름</p>
+
+<div style="max-width:980px; margin: 0 auto;">
+
+  <!-- ══════════════════════════════════════
+       상단: SQL 쿼리 2개
+  ══════════════════════════════════════ -->
+  <div style="display:grid; grid-template-columns:1fr 220px 1fr; gap:0; align-items:end; margin-bottom:12px;">
+    <div class="sql-box">
+      <div class="sql-label">Query A — 인덱스 탐색</div>
+      <div class="sql-code blue">WHERE id = 500000</div>
+    </div>
+    <div></div>
+    <div class="sql-box">
+      <div class="sql-label">Query B — 선형 탐색</div>
+      <div class="sql-code green">WHERE name = 'T1 Faker'</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       화살표 행 1 (SQL → 분기)
+  ══════════════════════════════════════ -->
+  <div style="display:grid; grid-template-columns:1fr 220px 1fr; gap:0; align-items:center; height:36px; margin-bottom:0;">
+    <div style="display:flex; justify-content:flex-end; padding-right:0;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+        <div class="arr-down-line blue" style="height:36px;"></div>
+        <div class="arr-down-head blue"></div>
+      </div>
+    </div>
+    <div style="text-align:center;">
+      <div style="font-size:10px; color:#475569; font-weight:600; letter-spacing:0.5px;">SQL 파서 / WHERE 분기</div>
+      <div style="font-size:9.5px; color:#334155; margin-top:2px;">WHERE 컬럼이 id? → 트리 / 아니면 → 선형</div>
+    </div>
+    <div style="display:flex; justify-content:flex-start; padding-left:0;">
+      <div style="display:flex; flex-direction:column; align-items:center;">
+        <div class="arr-down-line red" style="height:36px;"></div>
+        <div class="arr-down-head red"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       중간: 처리 방식 + 테이블
+  ══════════════════════════════════════ -->
+  <div style="display:grid; grid-template-columns:1fr 220px 1fr; gap:16px; align-items:start;">
+
+    <!-- 왼쪽: B+ 트리 경로 -->
+    <div style="display:flex; flex-direction:column; gap:10px;">
+
+      <!-- B+ 트리 노드 탐색 -->
+      <div class="tree-box">
+        <div class="tree-box-title">B+ 트리 인덱스 탐색</div>
+        <svg viewBox="0 0 240 140" width="100%" xmlns="http://www.w3.org/2000/svg">
+          <!-- 루트 -->
+          <rect x="70" y="6" width="100" height="26" rx="6" fill="#1e3a5f" stroke="#3b82f6" stroke-width="1.5"/>
+          <text x="120" y="23" text-anchor="middle" fill="#93c5fd" font-size="11" font-family="monospace">250K | 750K</text>
+
+          <!-- 화살표 + 강조 (500K는 오른쪽 서브트리) -->
+          <line x1="160" y1="32" x2="185" y2="52" stroke="#fbbf24" stroke-width="2" stroke-dasharray="4,2"/>
+
+          <!-- 내부 노드들 -->
+          <rect x="20" y="52" width="80" height="24" rx="5" fill="#132030" stroke="#1d4ed8" stroke-width="1"/>
+          <text x="60" y="68" text-anchor="middle" fill="#4b7ab5" font-size="10" font-family="monospace">125K | 250K</text>
+
+          <rect x="140" y="52" width="80" height="24" rx="5" fill="#1e3a5f" stroke="#3b82f6" stroke-width="1.5"/>
+          <text x="180" y="68" text-anchor="middle" fill="#93c5fd" font-size="10" font-family="monospace">500K | 625K</text>
+
+          <!-- 화살표 (500K 쪽) -->
+          <line x1="168" y1="76" x2="155" y2="96" stroke="#fbbf24" stroke-width="2" stroke-dasharray="4,2"/>
+
+          <!-- 리프들 -->
+          <rect x="10"  y="96" width="60" height="22" rx="4" fill="#0a1520" stroke="#1d4ed8" stroke-width="1"/>
+          <text x="40"  y="111" text-anchor="middle" fill="#3b5f8a" font-size="9.5" font-family="monospace">375K…</text>
+
+          <rect x="82"  y="96" width="68" height="22" rx="4" fill="#0d2748" stroke="#2563eb" stroke-width="2"/>
+          <text x="116" y="111" text-anchor="middle" fill="#93c5fd" font-size="9.5" font-family="monospace" font-weight="700">500K ★</text>
+
+          <rect x="162" y="96" width="60" height="22" rx="4" fill="#0a1520" stroke="#1d4ed8" stroke-width="1"/>
+          <text x="192" y="111" text-anchor="middle" fill="#3b5f8a" font-size="9.5" font-family="monospace">625K…</text>
+
+          <!-- 리프 연결 -->
+          <line x1="70"  y1="107" x2="82"  y2="107" stroke="#1d4ed8" stroke-width="1" marker-end="url(#a1)"/>
+          <line x1="150" y1="107" x2="162" y2="107" stroke="#1d4ed8" stroke-width="1" marker-end="url(#a1)"/>
+
+          <!-- 화살표 -->
+          <line x1="160" y1="76" x2="116" y2="96" stroke="#fbbf24" stroke-width="2" stroke-dasharray="4,2"/>
+
+          <!-- 탐색 경로 레이블 -->
+          <text x="195" y="44" text-anchor="middle" fill="#fbbf24" font-size="9" font-family="sans-serif">→ 오른쪽</text>
+          <text x="205" y="88" text-anchor="middle" fill="#fbbf24" font-size="9" font-family="sans-serif">→ 왼쪽</text>
+
+          <!-- 결과 포인터 -->
+          <line x1="116" y1="118" x2="116" y2="132" stroke="#4ade80" stroke-width="1.5" marker-end="url(#a2)"/>
+          <text x="116" y="140" text-anchor="middle" fill="#4ade80" font-size="9.5">레코드 포인터 반환</text>
+
+          <defs>
+            <marker id="a1" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto">
+              <path d="M0,0 L0,5 L5,2.5 z" fill="#1d4ed8"/>
+            </marker>
+            <marker id="a2" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto">
+              <path d="M0,0 L0,5 L5,2.5 z" fill="#4ade80"/>
+            </marker>
+          </defs>
+        </svg>
+      </div>
+
+      <!-- 단계 설명 -->
+      <div class="process-box blue-box">
+        <div class="pb-title">3단계만에 완료</div>
+        <div class="pb-desc">루트 → 내부 노드 → 리프<br>비교 횟수 ≈ log₂(1,000,000) ≈ <strong style="color:#93c5fd">20번</strong></div>
+      </div>
+    </div>
+
+    <!-- 중앙: Player 테이블 -->
+    <div class="center-col">
+      <div class="table-label-top">Player 테이블<br><span style="color:#475569; font-size:10px;">100만 건</span></div>
+      <div class="player-table">
+        <div class="pt-header">
+          <span>id</span><span>name</span><span>winrate</span><span>rank</span>
+        </div>
+        <div class="pt-row">
+          <span class="c-id">1</span><span class="c-name" style="font-size:9px;">Hide on bush</span><span class="c-wr">72%</span><span class="c-rank">CHAL</span>
+        </div>
+        <div class="pt-row">
+          <span class="c-id">2</span><span class="c-name" style="font-size:9px;">T1 Guma</span><span class="c-wr">61%</span><span class="c-rank">CHAL</span>
+        </div>
+        <div class="pt-row" style="opacity:.4">
+          <span class="c-id">…</span><span class="c-name">…</span><span class="c-wr">…</span><span class="c-rank">…</span>
+        </div>
+        <div class="pt-row hl-id" style="border:1px solid #2563eb;">
+          <span class="c-id">500K</span><span class="c-name" style="font-size:9px;color:#93c5fd">★찾음</span><span class="c-wr">54%</span><span class="c-rank">DIA_I</span>
+        </div>
+        <div class="pt-row" style="opacity:.4">
+          <span class="c-id">…</span><span class="c-name">…</span><span class="c-wr">…</span><span class="c-rank">…</span>
+        </div>
+        <div class="pt-row hl-name" style="border:1px solid #7c3aed;">
+          <span class="c-id">899K</span><span class="c-name" style="font-size:9px;color:#c4b5fd">T1 Faker</span><span class="c-wr">68%</span><span class="c-rank">CHAL</span>
+        </div>
+        <div class="pt-row" style="opacity:.4">
+          <span class="c-id">…</span><span class="c-name">…</span><span class="c-wr">…</span><span class="c-rank">…</span>
+        </div>
+        <div class="pt-row">
+          <span class="c-id">1M</span><span class="c-name" style="font-size:9px;">BlueSteel</span><span class="c-wr">49%</span><span class="c-rank">GOLD</span>
+        </div>
+      </div>
+
+      <!-- 양방향 화살표 표시 -->
+      <div style="display:flex; width:100%; justify-content:space-between; margin-top:8px; padding:0 10px;">
+        <div style="font-size:9.5px; color:#3b82f6; text-align:center;">← 포인터<br>직접 접근</div>
+        <div style="font-size:9.5px; color:#ef4444; text-align:center;">처음부터<br>끝까지 →</div>
+      </div>
+    </div>
+
+    <!-- 오른쪽: 선형 탐색 경로 -->
+    <div style="display:flex; flex-direction:column; gap:10px;">
+
+      <!-- 선형 탐색 시각화 -->
+      <div style="background:#200a0a; border:1.5px solid #b91c1c; border-radius:10px; padding:12px 14px;">
+        <div style="font-size:10.5px; font-weight:700; color:#f87171; text-align:center; margin-bottom:10px;">선형 탐색 진행</div>
+
+        <div style="font-size:10px; color:#475569; margin-bottom:6px;">id=1 부터 순서대로 비교 중...</div>
+
+        <div style="display:flex; flex-direction:column; gap:4px;">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span style="font-size:9.5px; color:#475569; width:28px; font-family:monospace;">1</span>
+            <div style="height:10px; border-radius:3px; background:#3b0a0a; flex:1; position:relative; overflow:hidden;">
+              <div style="position:absolute; top:0; left:0; height:100%; width:100%; background:#7f1d1d; border-radius:3px;"></div>
+            </div>
+            <span style="font-size:9px; color:#7f1d1d;">✗</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span style="font-size:9.5px; color:#475569; width:28px; font-family:monospace;">2</span>
+            <div style="height:10px; border-radius:3px; background:#3b0a0a; flex:1;">
+              <div style="height:100%; width:100%; background:#7f1d1d; border-radius:3px;"></div>
+            </div>
+            <span style="font-size:9px; color:#7f1d1d;">✗</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span style="font-size:9.5px; color:#64748b; width:28px;">…</span>
+            <div style="height:10px; border-radius:3px; background:#3b0a0a; flex:1;">
+              <div style="height:100%; width:100%; background:#7f1d1d; border-radius:3px;"></div>
+            </div>
+            <span style="font-size:9px; color:#7f1d1d;">✗</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span style="font-size:9.5px; color:#475569; width:28px; font-family:monospace; font-size:8px;">500K</span>
+            <div style="height:10px; border-radius:3px; background:#3b0a0a; flex:1;">
+              <div style="height:100%; width:100%; background:#7f1d1d; border-radius:3px;"></div>
+            </div>
+            <span style="font-size:9px; color:#7f1d1d;">✗</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span style="font-size:9.5px; color:#64748b; width:28px;">…</span>
+            <div style="height:10px; border-radius:3px; background:#3b0a0a; flex:1;">
+              <div style="height:100%; width:100%; background:#7f1d1d; border-radius:3px;"></div>
+            </div>
+            <span style="font-size:9px; color:#7f1d1d;">✗</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:6px; background:#2d0a2e; border-radius:4px; padding:2px 0; border: 1px solid #7c3aed;">
+            <span style="font-size:9.5px; color:#c4b5fd; width:28px; font-family:monospace; font-size:8px; padding-left:4px;">899K</span>
+            <div style="height:10px; border-radius:3px; background:#4c1d95; flex:1;">
+              <div style="height:100%; width:100%; background:#7c3aed; border-radius:3px;"></div>
+            </div>
+            <span style="font-size:9px; color:#a78bfa; padding-right:4px;">★</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span style="font-size:9.5px; color:#64748b; width:28px;">…</span>
+            <div style="height:10px; border-radius:3px; background:#1e1033; flex:1;"></div>
+            <span style="font-size:9px; color:#334155;">(스킵)</span>
+          </div>
+        </div>
+
+        <div style="margin-top:8px; font-size:9.5px; color:#ef4444; text-align:center;">
+          899,000번째에 발견 😢
+        </div>
+      </div>
+
+      <!-- 단계 설명 -->
+      <div class="process-box red-box">
+        <div class="pb-title">최대 100만 번 비교</div>
+        <div class="pb-desc">처음 레코드부터 하나씩 name 비교<br>평균 50만 번, 최악 <strong style="color:#fca5a5">100만 번</strong></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       하단: 결과
+  ══════════════════════════════════════ -->
+  <div style="display:grid; grid-template-columns:1fr 220px 1fr; gap:16px; margin-top:16px; align-items:center;">
+    <div class="result-box ok">
+      <div class="rb-icon">⚡</div>
+      <div class="rb-title">인덱스 탐색</div>
+      <div class="rb-time">~10 μs</div>
+      <div class="rb-sub">O(log n) · 비교 약 20번</div>
+    </div>
+    <div style="text-align:center;">
+      <div style="font-size:26px; font-weight:800; color:#ef4444;">vs</div>
+      <div style="font-size:11px; color:#475569; margin-top:4px;">같은 데이터<br>다른 경로</div>
+    </div>
+    <div class="result-box slow">
+      <div class="rb-icon">🐌</div>
+      <div class="rb-title">선형 탐색</div>
+      <div class="rb-time">~200,000 μs</div>
+      <div class="rb-sub">O(n) · 비교 최대 100만 번</div>
+    </div>
+  </div>
+</div>
+
+<!-- 단계별 요약 -->
+<div class="summary">
+  <div class="sum-box blue-sum">
+    <div class="sum-title">⚡ WHERE id = 500000 — 흐름</div>
+    <div class="sum-row"><span class="sum-step">1</span> SQL 파서: WHERE 컬럼이 id → 인덱스 모드</div>
+    <div class="sum-row"><span class="sum-step">2</span> B+ 트리 루트에서 500000 탐색 시작</div>
+    <div class="sum-row"><span class="sum-step">3</span> 루트 → 내부 노드 → 리프 (3~4단계)</div>
+    <div class="sum-row"><span class="sum-step">4</span> 리프에서 레코드 포인터 반환 → 즉시 출력</div>
+  </div>
+  <div class="sum-box red-sum">
+    <div class="sum-title">🐌 WHERE name = 'T1 Faker' — 흐름</div>
+    <div class="sum-row"><span class="sum-step red-step">1</span> SQL 파서: WHERE 컬럼이 name → 선형 모드</div>
+    <div class="sum-row"><span class="sum-step red-step">2</span> table[0].name 비교 → 다름 → 다음</div>
+    <div class="sum-row"><span class="sum-step red-step">3</span> table[1].name … table[898999].name → 전부 다름</div>
+    <div class="sum-row"><span class="sum-step red-step">4</span> table[899000].name == 'T1 Faker' → 반환</div>
+  </div>
+</div>
+
+</body>
+</html>
