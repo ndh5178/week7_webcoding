@@ -6,3 +6,8 @@ data/*.csv
 assets/results/
 .DS_Store
 # Local-only agent handoff/work logs
+__pycache__/
+.venv/
+players.csv
+collect_checkpoint.txt
+riot_id_cache.csv
